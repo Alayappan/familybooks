@@ -1,0 +1,52 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Accounting Book Base -->
+    <path
+        android:fillColor="#00D4B2"
+        android:pathData="M28,34 C28,30.68 30.68,28 34,28 L51,28 C52.6,28 54,29.4 54,31 L54,77 C54,78.6 52.6,80 51,80 L34,80 C30.68,80 28,77.32 28,74 Z" />
+    <path
+        android:fillColor="#00B89C"
+        android:pathData="M80,34 C80,30.68 77.32,28 74,28 L57,28 C55.4,28 54,29.4 54,31 L54,77 C54,78.6 55.4,80 57,80 L74,80 C77.32,80 80,77.32 80,74 Z" />
+    <!-- Book Spine & Pages Lines -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52.5,29 L55.5,29 L55.5,79 L52.5,79 Z" />
+    <!-- Left Page Ledger Lines -->
+    <path
+        android:fillColor="#0A2540"
+        android:pathData="M34,38 L48,38 L48,40.5 L34,40.5 Z" />
+    <path
+        android:fillColor="#0A2540"
+        android:pathData="M34,45 L48,45 L48,47.5 L34,47.5 Z" />
+    <path
+        android:fillColor="#0A2540"
+        android:pathData="M34,52 L44,52 L44,54.5 L34,54.5 Z" />
+    <!-- Right Page P2P Family Sync Network Nodes -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,39 A3.5,3.5 0 1,1 66,46 A3.5,3.5 0 1,1 66,39" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,57 A3,3 0 1,1 60,63 A3,3 0 1,1 60,57" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M73,57 A3,3 0 1,1 73,63 A3,3 0 1,1 73,57" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M66,46 L60,57 M66,46 L73,57 M60,60 L73,60" />
+    <!-- Bottom Badge Currency Sync Emblem -->
+    <path
+        android:fillColor="#FFD166"
+        android:pathData="M54,64 A6.5,6.5 0 1,1 54,77 A6.5,6.5 0 1,1 54,64" />
+    <path
+        android:fillColor="#0A2540"
+        android:pathData="M52.8,67.5 L55.2,67.5 L55.2,73.5 L52.8,73.5 Z" />
+    <path
+        android:fillColor="#0A2540"
+        android:pathData="M51.5,68.8 L56.5,68.8 L56.5,70.2 L51.5,70.2 Z" />
+</vector>

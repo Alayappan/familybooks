@@ -1,0 +1,7 @@
+{
+  "name": "FamilyBooks",
+  "description": "Offline-first P2P local family accounting application with decentralized Wi-Fi sync, expense tracking, and informal invoicing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
