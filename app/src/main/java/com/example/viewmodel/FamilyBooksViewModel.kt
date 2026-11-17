@@ -7,12 +7,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.FamilyBooksDatabase
 import com.example.data.model.FamilyInvoiceEntity
 import com.example.data.model.FamilyMemberEntity
-import com.example.data.model.MemberBalanceSummary
-import com.example.data.model.PeerDevice
-import com.example.data.model.SyncLogEntity
+import com.example.data.model.LiabilityType
+import com.example.data.model.ProfileFinancialSummary
 import com.example.data.model.TransactionEntity
+import com.example.data.model.remainingAmount
 import com.example.data.repository.FamilyBooksRepository
-import com.example.sync.FamilyBooksSyncEngine
+import com.example.data.util.ImportResult
+import com.example.data.util.LedgerExportImportManager
+import com.example.data.util.LedgerImportPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,19 +35,8 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
     private val repository = FamilyBooksRepository(
         transactionDao = database.transactionDao(),
         invoiceDao = database.invoiceDao(),
-        familyMemberDao = database.familyMemberDao(),
-        syncLogDao = database.syncLogDao()
+        familyMemberDao = database.familyMemberDao()
     )
-
-    val syncEngine = FamilyBooksSyncEngine(
-        context = application,
-        repository = repository,
-        scope = viewModelScope
-    )
-
-    init {
-        syncEngine.start()
-    }
 
     // --- Core Data Flows ---
     val allTransactions: StateFlow<List<TransactionEntity>> = repository.allTransactions
@@ -57,15 +48,34 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
     val allMembers: StateFlow<List<FamilyMemberEntity>> = repository.allMembers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val memberBalances: StateFlow<List<MemberBalanceSummary>> = repository.memberBalances
+    val profileSummaries: StateFlow<List<ProfileFinancialSummary>> = repository.profileSummaries
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val syncLogs: StateFlow<List<SyncLogEntity>> = repository.recentSyncLogs
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // --- Active Profile Preference ---
+    private val _preferredProfileName = MutableStateFlow(
+        prefs.getString("active_profile_name", "") ?: ""
+    )
+
+    val activeProfileName: StateFlow<String> = combine(
+        allMembers,
+        _preferredProfileName
+    ) { members, preferred ->
+        when {
+            members.isEmpty() -> ""
+            preferred.isNotBlank() && members.any { it.name.equals(preferred, ignoreCase = true) } ->
+                members.first { it.name.equals(preferred, ignoreCase = true) }.name
+            else -> members.firstOrNull { it.isPrimary }?.name ?: members.first().name
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    fun setActiveProfile(name: String) {
+        _preferredProfileName.value = name
+        prefs.edit().putString("active_profile_name", name).apply()
+    }
 
     // --- Cash in Hand (Wallet / Cash Pool) Flow ---
     private val _cashPoolBaseline = MutableStateFlow(
-        prefs.getFloat("cash_pool_baseline", 250f).toDouble()
+        prefs.getFloat("cash_pool_baseline", 0f).toDouble()
     )
     val cashPoolBaseline: StateFlow<Double> = _cashPoolBaseline.asStateFlow()
 
@@ -78,26 +88,12 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         val cashExpenses = txs.filter { it.type == "EXPENSE" && it.paymentMethod.equals("Cash", ignoreCase = true) }
             .sumOf { it.amount }
         baseline + cashIncomes - cashExpenses
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 250.0)
-
-    val cashSpentThisMonth: StateFlow<Double> = allTransactions.combine(_cashPoolBaseline) { txs, _ ->
-        val cal = Calendar.getInstance()
-        val currentMonth = cal.get(Calendar.MONTH)
-        val currentYear = cal.get(Calendar.YEAR)
-        txs.filter {
-            cal.timeInMillis = it.date
-            cal.get(Calendar.MONTH) == currentMonth &&
-                    cal.get(Calendar.YEAR) == currentYear &&
-                    it.type == "EXPENSE" &&
-                    it.paymentMethod.equals("Cash", ignoreCase = true)
-        }.sumOf { it.amount }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     fun refillCashPool(amount: Double, note: String) {
         viewModelScope.launch {
-            // Log as Cash refill transaction
             val now = System.currentTimeMillis()
-            val currentMember = syncEngine.currentMemberName.value
+            val owner = activeProfileName.value.ifBlank { "Family" }
             val tx = TransactionEntity(
                 id = UUID.randomUUID().toString(),
                 type = "INCOME",
@@ -105,7 +101,9 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
                 date = now,
                 category = "Other",
                 paymentMethod = "Cash",
-                paidBy = currentMember,
+                paidBy = owner,
+                forWhom = "Shared Family",
+                fromWhom = "ATM / Cash Wallet Refill",
                 notes = if (note.isBlank()) "ATM Cash Refill" else note,
                 createdAt = now,
                 updatedAt = now
@@ -135,8 +133,8 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
     private val _selectedMemberFilter = MutableStateFlow("ALL")
     val selectedMemberFilter: StateFlow<String> = _selectedMemberFilter.asStateFlow()
 
-    private val _selectedInvoiceStatusFilter = MutableStateFlow("ALL")
-    val selectedInvoiceStatusFilter: StateFlow<String> = _selectedInvoiceStatusFilter.asStateFlow()
+    private val _selectedAnalyticsProfile = MutableStateFlow("ALL")
+    val selectedAnalyticsProfile: StateFlow<String> = _selectedAnalyticsProfile.asStateFlow()
 
     // --- Filtered Transactions Flow ---
     val filteredTransactions: StateFlow<List<TransactionEntity>> = combine(
@@ -148,37 +146,24 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
     ) { txs, query, typeFilter, catFilter, memberFilter ->
         txs.filter { tx ->
             val matchesQuery = query.isBlank() ||
-                    tx.category.contains(query, ignoreCase = true) ||
-                    tx.notes.contains(query, ignoreCase = true) ||
-                    tx.paidBy.contains(query, ignoreCase = true) ||
-                    tx.paymentMethod.contains(query, ignoreCase = true) ||
-                    tx.amount.toString().contains(query)
+                tx.category.contains(query, ignoreCase = true) ||
+                tx.notes.contains(query, ignoreCase = true) ||
+                tx.paidBy.contains(query, ignoreCase = true) ||
+                tx.forWhom.contains(query, ignoreCase = true) ||
+                tx.fromWhom.contains(query, ignoreCase = true) ||
+                tx.contributedBy.contains(query, ignoreCase = true) ||
+                tx.paymentMethod.contains(query, ignoreCase = true) ||
+                tx.amount.toString().contains(query)
 
             val matchesType = typeFilter == "ALL" || tx.type.equals(typeFilter, ignoreCase = true)
             val matchesCategory = catFilter == "ALL" || tx.category.equals(catFilter, ignoreCase = true)
-            val matchesMember = memberFilter == "ALL" || tx.paidBy.equals(memberFilter, ignoreCase = true)
+            val matchesMember = memberFilter == "ALL" ||
+                tx.paidBy.equals(memberFilter, ignoreCase = true) ||
+                tx.forWhom.equals(memberFilter, ignoreCase = true) ||
+                tx.fromWhom.equals(memberFilter, ignoreCase = true) ||
+                tx.contributedBy.equals(memberFilter, ignoreCase = true)
 
             matchesQuery && matchesType && matchesCategory && matchesMember
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // --- Filtered Invoices Flow ---
-    val filteredInvoices: StateFlow<List<FamilyInvoiceEntity>> = combine(
-        allInvoices,
-        searchQuery,
-        selectedInvoiceStatusFilter
-    ) { invs, query, statusFilter ->
-        invs.filter { inv ->
-            val matchesQuery = query.isBlank() ||
-                    inv.title.contains(query, ignoreCase = true) ||
-                    inv.fromMember.contains(query, ignoreCase = true) ||
-                    inv.toMember.contains(query, ignoreCase = true) ||
-                    inv.notes.contains(query, ignoreCase = true) ||
-                    inv.amount.toString().contains(query)
-
-            val matchesStatus = statusFilter == "ALL" || inv.status.equals(statusFilter, ignoreCase = true)
-
-            matchesQuery && matchesStatus
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -188,7 +173,10 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         val totalExpense: Double = 0.0,
         val netCashFlow: Double = 0.0,
         val pendingInvoicesCount: Int = 0,
-        val pendingInvoicesAmount: Double = 0.0,
+        val pendingFamilyIousAmount: Double = 0.0,
+        val thirdPartyPayableAmount: Double = 0.0,
+        val thirdPartyReceivableAmount: Double = 0.0,
+        val totalContributionsThisMonth: Double = 0.0,
         val categoryBreakdown: Map<String, Double> = emptyMap(),
         val topPayerName: String = "None",
         val topPayerAmount: Double = 0.0
@@ -209,18 +197,28 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
 
         val totalIncome = monthTxs.filter { it.type == "INCOME" }.sumOf { it.amount }
         val totalExpense = monthTxs.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+        val totalContributions = monthTxs.sumOf { it.contributedAmount }
         val netCashFlow = totalIncome - totalExpense
 
-        val pendingInvs = invs.filter { it.status == "UNPAID" }
-        val pendingCount = pendingInvs.size
-        val pendingAmount = pendingInvs.sumOf { it.amount }
+        val pendingInvs = invs.filter { it.status != "SETTLED" }
+        val familyIousAmt = pendingInvs
+            .filter { it.liabilityType == LiabilityType.FAMILY_IOU }
+            .sumOf { it.remainingAmount }
+        val thirdPartyPayableAmt = pendingInvs
+            .filter { it.liabilityType == LiabilityType.THIRD_PARTY_PAYABLE }
+            .sumOf { it.remainingAmount }
+        val thirdPartyReceivableAmt = pendingInvs
+            .filter { it.liabilityType == LiabilityType.THIRD_PARTY_RECEIVABLE }
+            .sumOf { it.remainingAmount }
 
         val categoryMap = mutableMapOf<String, Double>()
         val memberPayerMap = mutableMapOf<String, Double>()
 
         monthTxs.filter { it.type == "EXPENSE" }.forEach {
             categoryMap[it.category] = (categoryMap[it.category] ?: 0.0) + it.amount
-            memberPayerMap[it.paidBy] = (memberPayerMap[it.paidBy] ?: 0.0) + it.amount
+            if (it.paidBy.isNotBlank()) {
+                memberPayerMap[it.paidBy] = (memberPayerMap[it.paidBy] ?: 0.0) + it.amount
+            }
         }
 
         val topPayer = memberPayerMap.maxByOrNull { it.value }
@@ -229,24 +227,28 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
             totalIncome = totalIncome,
             totalExpense = totalExpense,
             netCashFlow = netCashFlow,
-            pendingInvoicesCount = pendingCount,
-            pendingInvoicesAmount = pendingAmount,
+            pendingInvoicesCount = pendingInvs.size,
+            pendingFamilyIousAmount = familyIousAmt,
+            thirdPartyPayableAmount = thirdPartyPayableAmt,
+            thirdPartyReceivableAmount = thirdPartyReceivableAmt,
+            totalContributionsThisMonth = totalContributions,
             categoryBreakdown = categoryMap,
             topPayerName = topPayer?.key ?: "None",
             topPayerAmount = topPayer?.value ?: 0.0
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardAnalytics())
 
-    // --- Month-on-Month Detailed Category & Income/Expense Analytics ---
+    // --- Month-on-Month & Per-Profile Detailed Analytics ---
     data class CategoryMoMComparison(
         val category: String,
         val currentMonthAmount: Double,
         val previousMonthAmount: Double,
-        val difference: Double, // current - previous
-        val percentageChange: Double // ((current - previous) / previous) * 100
+        val difference: Double,
+        val percentageChange: Double
     )
 
     data class MonthAnalyticsSummary(
+        val selectedProfile: String = "ALL",
         val currentMonthLabel: String = "",
         val previousMonthLabel: String = "",
         val currentTotalIncome: Double = 0.0,
@@ -255,6 +257,13 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         val currentTotalExpense: Double = 0.0,
         val previousTotalExpense: Double = 0.0,
         val expenseChangePercent: Double = 0.0,
+        val expenseForProfileThisMonth: Double = 0.0,
+        val contributionsProvidedThisMonth: Double = 0.0,
+        val contributionsReceivedThisMonth: Double = 0.0,
+        val thirdPartyDebtOwed: Double = 0.0,
+        val thirdPartyReceivable: Double = 0.0,
+        val familyDebtOwed: Double = 0.0,
+        val familyReceivable: Double = 0.0,
         val currentNetSavings: Double = 0.0,
         val previousNetSavings: Double = 0.0,
         val categoryComparisons: List<CategoryMoMComparison> = emptyList(),
@@ -263,14 +272,28 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         val paymentMethodBreakdown: Map<String, Double> = emptyMap()
     )
 
-    val monthAnalytics: StateFlow<MonthAnalyticsSummary> = allTransactions.combine(allInvoices) { txs, _ ->
+    val monthAnalytics: StateFlow<MonthAnalyticsSummary> = combine(
+        allTransactions,
+        allInvoices,
+        selectedAnalyticsProfile
+    ) { allTxs, allInvs, profileFilter ->
+        val isAll = profileFilter == "ALL"
+
+        val txs = if (isAll) {
+            allTxs
+        } else {
+            allTxs.filter { tx ->
+                tx.paidBy.equals(profileFilter, ignoreCase = true) ||
+                    tx.forWhom.equals(profileFilter, ignoreCase = true) ||
+                    tx.contributedBy.equals(profileFilter, ignoreCase = true)
+            }
+        }
+
         val calCurrent = Calendar.getInstance()
         val currentMonth = calCurrent.get(Calendar.MONTH)
         val currentYear = calCurrent.get(Calendar.YEAR)
 
-        val calPrev = Calendar.getInstance().apply {
-            add(Calendar.MONTH, -1)
-        }
+        val calPrev = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
         val prevMonth = calPrev.get(Calendar.MONTH)
         val prevYear = calPrev.get(Calendar.YEAR)
 
@@ -282,38 +305,99 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
             val cal = Calendar.getInstance().apply { timeInMillis = it.date }
             cal.get(Calendar.MONTH) == currentMonth && cal.get(Calendar.YEAR) == currentYear
         }
-
         val prevTxs = txs.filter {
             val cal = Calendar.getInstance().apply { timeInMillis = it.date }
             cal.get(Calendar.MONTH) == prevMonth && cal.get(Calendar.YEAR) == prevYear
         }
 
-        val curIncome = currentTxs.filter { it.type == "INCOME" }.sumOf { it.amount }
-        val prevIncome = prevTxs.filter { it.type == "INCOME" }.sumOf { it.amount }
+        val curIncome = currentTxs.filter {
+            it.type == "INCOME" && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.amount }
+
+        val prevIncome = prevTxs.filter {
+            it.type == "INCOME" && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.amount }
+
         val incomeChange = if (prevIncome > 0) ((curIncome - prevIncome) / prevIncome) * 100 else 0.0
 
-        val curExpense = currentTxs.filter { it.type == "EXPENSE" }.sumOf { it.amount }
-        val prevExpense = prevTxs.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+        val curExpense = currentTxs.filter {
+            it.type == "EXPENSE" && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.amount }
+
+        val prevExpense = prevTxs.filter {
+            it.type == "EXPENSE" && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.amount }
+
         val expenseChange = if (prevExpense > 0) ((curExpense - prevExpense) / prevExpense) * 100 else 0.0
+
+        val expenseForProfile = if (isAll) {
+            curExpense
+        } else {
+            currentTxs.filter {
+                it.type == "EXPENSE" && it.forWhom.equals(profileFilter, ignoreCase = true)
+            }.sumOf { it.amount }
+        }
+
+        val contributionsProvided = currentTxs.filter {
+            it.contributedAmount > 0 && (isAll || it.contributedBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.contributedAmount }
+
+        val contributionsReceived = currentTxs.filter {
+            it.contributedAmount > 0 && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.contributedAmount }
+
+        val activeInvs = allInvs.filter { it.status != "SETTLED" }
+        val thirdPartyDebt = activeInvs.filter {
+            it.liabilityType == LiabilityType.THIRD_PARTY_PAYABLE &&
+                (isAll || it.linkedProfile.equals(profileFilter, ignoreCase = true) ||
+                    (it.linkedProfile.isBlank() && it.fromMember.equals(profileFilter, ignoreCase = true)))
+        }.sumOf { it.remainingAmount }
+
+        val thirdPartyRec = activeInvs.filter {
+            it.liabilityType == LiabilityType.THIRD_PARTY_RECEIVABLE &&
+                (isAll || it.linkedProfile.equals(profileFilter, ignoreCase = true) ||
+                    (it.linkedProfile.isBlank() && it.toMember.equals(profileFilter, ignoreCase = true)))
+        }.sumOf { it.remainingAmount }
+
+        val familyDebt = activeInvs.filter {
+            it.liabilityType == LiabilityType.FAMILY_IOU &&
+                (isAll || it.fromMember.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.remainingAmount }
+
+        val familyRec = activeInvs.filter {
+            it.liabilityType == LiabilityType.FAMILY_IOU &&
+                (isAll || it.toMember.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.remainingAmount }
 
         val curSavings = curIncome - curExpense
         val prevSavings = prevIncome - prevExpense
 
-        val curCashSpent = currentTxs.filter { it.type == "EXPENSE" && it.paymentMethod.equals("Cash", ignoreCase = true) }
-            .sumOf { it.amount }
-        val prevCashSpent = prevTxs.filter { it.type == "EXPENSE" && it.paymentMethod.equals("Cash", ignoreCase = true) }
-            .sumOf { it.amount }
+        val curCashSpent = currentTxs.filter {
+            it.type == "EXPENSE" &&
+                it.paymentMethod.equals("Cash", ignoreCase = true) &&
+                (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.amount }
 
-        // Category-by-category comparison: compare similar expenses
-        val allCategories = (currentTxs.map { it.category } + prevTxs.map { it.category })
-            .filter { it.isNotBlank() && it != "Salary" && it != "Bonus" && it != "Income" }
+        val prevCashSpent = prevTxs.filter {
+            it.type == "EXPENSE" &&
+                it.paymentMethod.equals("Cash", ignoreCase = true) &&
+                (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.sumOf { it.amount }
+
+        val curExpenseForCat = currentTxs.filter {
+            it.type == "EXPENSE" && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true) || it.forWhom.equals(profileFilter, ignoreCase = true))
+        }
+        val prevExpenseForCat = prevTxs.filter {
+            it.type == "EXPENSE" && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true) || it.forWhom.equals(profileFilter, ignoreCase = true))
+        }
+
+        val allCategories = (curExpenseForCat.map { it.category } + prevExpenseForCat.map { it.category })
+            .filter { it.isNotBlank() }
             .distinct()
 
         val categoryComparisons = allCategories.map { cat ->
-            val curAmt = currentTxs.filter { it.category.equals(cat, ignoreCase = true) && it.type == "EXPENSE" }
-                .sumOf { it.amount }
-            val prevAmt = prevTxs.filter { it.category.equals(cat, ignoreCase = true) && it.type == "EXPENSE" }
-                .sumOf { it.amount }
+            val curAmt = curExpenseForCat.filter { it.category.equals(cat, ignoreCase = true) }.sumOf { it.amount }
+            val prevAmt = prevExpenseForCat.filter { it.category.equals(cat, ignoreCase = true) }.sumOf { it.amount }
             val diff = curAmt - prevAmt
             val pct = if (prevAmt > 0) ((curAmt - prevAmt) / prevAmt) * 100 else if (curAmt > 0) 100.0 else 0.0
 
@@ -326,13 +410,15 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
             )
         }.sortedByDescending { it.currentMonthAmount }
 
-        // Payment method breakdown this month
         val methodMap = mutableMapOf<String, Double>()
-        currentTxs.filter { it.type == "EXPENSE" }.forEach {
+        currentTxs.filter {
+            it.type == "EXPENSE" && (isAll || it.paidBy.equals(profileFilter, ignoreCase = true))
+        }.forEach {
             methodMap[it.paymentMethod] = (methodMap[it.paymentMethod] ?: 0.0) + it.amount
         }
 
         MonthAnalyticsSummary(
+            selectedProfile = profileFilter,
             currentMonthLabel = currentMonthLabel,
             previousMonthLabel = prevMonthLabel,
             currentTotalIncome = curIncome,
@@ -341,6 +427,13 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
             currentTotalExpense = curExpense,
             previousTotalExpense = prevExpense,
             expenseChangePercent = expenseChange,
+            expenseForProfileThisMonth = expenseForProfile,
+            contributionsProvidedThisMonth = contributionsProvided,
+            contributionsReceivedThisMonth = contributionsReceived,
+            thirdPartyDebtOwed = thirdPartyDebt,
+            thirdPartyReceivable = thirdPartyRec,
+            familyDebtOwed = familyDebt,
+            familyReceivable = familyRec,
             currentNetSavings = curSavings,
             previousNetSavings = prevSavings,
             categoryComparisons = categoryComparisons,
@@ -367,8 +460,8 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         _selectedMemberFilter.value = member
     }
 
-    fun setInvoiceStatusFilter(status: String) {
-        _selectedInvoiceStatusFilter.value = status
+    fun setAnalyticsProfile(profileName: String) {
+        _selectedAnalyticsProfile.value = profileName
     }
 
     // --- Transaction Actions ---
@@ -380,9 +473,14 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         category: String,
         paymentMethod: String,
         paidBy: String,
+        forWhom: String,
+        fromWhom: String,
+        contributedBy: String,
+        contributedAmount: Double,
         notes: String
     ) {
         viewModelScope.launch {
+            val now = System.currentTimeMillis()
             val tx = TransactionEntity(
                 id = id ?: UUID.randomUUID().toString(),
                 type = type,
@@ -390,10 +488,14 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
                 date = date,
                 category = category,
                 paymentMethod = paymentMethod,
-                paidBy = paidBy,
-                notes = notes,
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
+                paidBy = paidBy.trim().ifBlank { "Family" },
+                forWhom = forWhom.trim(),
+                fromWhom = fromWhom.trim(),
+                contributedBy = contributedBy.trim(),
+                contributedAmount = if (contributedBy.isBlank()) 0.0 else contributedAmount.coerceAtLeast(0.0),
+                notes = notes.trim(),
+                createdAt = now,
+                updatedAt = now
             )
             repository.saveTransaction(tx)
         }
@@ -405,10 +507,12 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // --- Invoice Actions ---
+    // --- Liability / Debt / IOU Actions ---
     fun saveInvoice(
         id: String? = null,
         title: String,
+        liabilityType: String = LiabilityType.FAMILY_IOU,
+        linkedProfile: String = "",
         fromMember: String,
         toMember: String,
         amount: Double,
@@ -417,20 +521,30 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         notes: String = ""
     ) {
         viewModelScope.launch {
+            val now = System.currentTimeMillis()
             val inv = FamilyInvoiceEntity(
                 id = id ?: UUID.randomUUID().toString(),
-                title = title,
-                fromMember = fromMember,
-                toMember = toMember,
+                title = title.trim(),
+                liabilityType = liabilityType,
+                linkedProfile = linkedProfile.trim(),
+                fromMember = fromMember.trim(),
+                toMember = toMember.trim(),
                 amount = amount,
+                paidAmount = 0.0,
                 date = date,
                 dueDate = dueDate,
-                notes = notes,
+                notes = notes.trim(),
                 status = "UNPAID",
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
+                createdAt = now,
+                updatedAt = now
             )
             repository.saveInvoice(inv)
+        }
+    }
+
+    fun recordLiabilityPayment(id: String, paymentAmount: Double) {
+        viewModelScope.launch {
+            repository.recordLiabilityPayment(id, paymentAmount)
         }
     }
 
@@ -450,107 +564,103 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
         title: String,
         totalAmount: Double,
         paidBy: String,
-        participatingMembers: List<String>
+        participatingMembers: List<String>,
+        alsoLogMainExpense: Boolean = false,
+        category: String = "Shared",
+        paymentMethod: String = "Card"
     ) {
         if (participatingMembers.isEmpty()) return
         val splitAmount = totalAmount / participatingMembers.size
+        val now = System.currentTimeMillis()
         viewModelScope.launch {
+            if (alsoLogMainExpense) {
+                repository.saveTransaction(
+                    TransactionEntity(
+                        id = UUID.randomUUID().toString(),
+                        type = "EXPENSE",
+                        amount = totalAmount,
+                        date = now,
+                        category = category,
+                        paymentMethod = paymentMethod,
+                        paidBy = paidBy,
+                        forWhom = participatingMembers.joinToString(", "),
+                        notes = title.trim(),
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                )
+            }
             for (member in participatingMembers) {
                 if (!member.equals(paidBy, ignoreCase = true)) {
-                    saveInvoice(
-                        title = "$title (Split Share)",
-                        fromMember = member,
-                        toMember = paidBy,
-                        amount = Math.round(splitAmount * 100.0) / 100.0,
-                        notes = "Auto-split from '$title' paid by $paidBy"
+                    repository.saveInvoice(
+                        FamilyInvoiceEntity(
+                            id = UUID.randomUUID().toString(),
+                            title = "$title (Split Share)",
+                            liabilityType = LiabilityType.FAMILY_IOU,
+                            linkedProfile = "",
+                            fromMember = member,
+                            toMember = paidBy,
+                            amount = Math.round(splitAmount * 100.0) / 100.0,
+                            date = now,
+                            notes = "Split from '$title' paid by $paidBy",
+                            status = "UNPAID",
+                            createdAt = now,
+                            updatedAt = now
+                        )
                     )
                 }
             }
         }
     }
 
-    // --- Member Actions ---
-    fun addFamilyMember(name: String, role: String, avatarColorHex: String = "#0A2540") {
+    // --- Family Profile CRUD ---
+    fun saveProfile(
+        id: String? = null,
+        name: String,
+        role: String,
+        avatarColorHex: String = "#0A2540",
+        notes: String = "",
+        isPrimary: Boolean = false
+    ) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return
         viewModelScope.launch {
-            repository.saveMember(
-                FamilyMemberEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = name.trim(),
-                    role = role.trim(),
-                    avatarColorHex = avatarColorHex,
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                )
+            val now = System.currentTimeMillis()
+            val shouldBePrimary = isPrimary || allMembers.value.isEmpty()
+            val member = FamilyMemberEntity(
+                id = id ?: UUID.randomUUID().toString(),
+                name = cleanName,
+                role = role.trim().ifEmpty { "Member" },
+                avatarColorHex = avatarColorHex,
+                isPrimary = shouldBePrimary,
+                notes = notes.trim(),
+                createdAt = now,
+                updatedAt = now
             )
+            repository.saveMember(member)
+            if (shouldBePrimary || activeProfileName.value.isBlank()) {
+                setActiveProfile(cleanName)
+            }
         }
     }
 
-    fun switchCurrentMember(name: String) {
-        syncEngine.setCurrentMember(name)
-    }
-
-    val currentDeviceName: StateFlow<String> = syncEngine.currentDeviceName
-
-    fun updateProfile(name: String, deviceName: String) {
-        syncEngine.updateProfile(name, deviceName)
-    }
-
-    // --- Sync & Pairing Actions ---
-    val lastSyncSummary: StateFlow<com.example.sync.SyncRunSummary?> = syncEngine.lastSyncSummary
-    val isScanningNetwork: StateFlow<Boolean> = syncEngine.isScanningNetwork
-    val scannedPairingDevices: StateFlow<List<PeerDevice>> = syncEngine.scannedPairingDevices
-
-    fun scanLocalNetworkForPairing() {
-        syncEngine.scanLocalNetworkForPairing()
-    }
-
-    fun dismissSyncSummary() {
-        syncEngine.dismissSyncSummary()
-    }
-
-    fun syncNow() {
+    fun deleteProfile(id: String) {
         viewModelScope.launch {
-            syncEngine.syncWithAllPeers()
+            val deleted = allMembers.value.firstOrNull { it.id == id }
+            repository.deleteMember(id)
+            if (deleted != null && _preferredProfileName.value.equals(deleted.name, ignoreCase = true)) {
+                setActiveProfile("")
+            }
+            if (deleted != null && _selectedAnalyticsProfile.value.equals(deleted.name, ignoreCase = true)) {
+                _selectedAnalyticsProfile.value = "ALL"
+            }
+            if (deleted != null && _selectedMemberFilter.value.equals(deleted.name, ignoreCase = true)) {
+                _selectedMemberFilter.value = "ALL"
+            }
         }
-    }
-
-    fun syncWithPeer(peer: PeerDevice) {
-        viewModelScope.launch {
-            syncEngine.syncWithPeer(peer)
-        }
-    }
-
-    fun syncMember(member: FamilyMemberEntity) {
-        viewModelScope.launch {
-            syncEngine.syncMember(member)
-        }
-    }
-
-    fun pairDiscoveredDevice(peer: PeerDevice) {
-        syncEngine.pairDiscoveredDevice(peer)
-    }
-
-    fun removePairedDevice(memberId: String, deviceId: String) {
-        viewModelScope.launch {
-            repository.deleteMember(memberId)
-            syncEngine.removePeer(deviceId)
-        }
-    }
-
-    fun connectDirectPeer(ip: String, port: Int, memberName: String) {
-        syncEngine.connectDirectPeer(ip, port, memberName)
-    }
-
-    fun pairFamilyDevice(name: String, deviceName: String, sampleExpense: Double = 0.0) {
-        syncEngine.pairFamilyDevice(name, deviceName, sampleExpense)
-    }
-
-    fun pairSimulatedFamilyDevice(name: String, role: String, sampleExpense: Double = 50.0) {
-        syncEngine.pairSimulatedFamilyDevice(name, role, sampleExpense)
     }
 
     // --- Export / Import Ledger Operations ---
-
     fun exportLedgerData(
         year: Int,
         months: Set<Int>, // empty = full year
@@ -558,23 +668,24 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
     ): String {
         val txs = allTransactions.value
         val invs = allInvoices.value
-        val currentMember = syncEngine.currentMemberName.value
+        val profiles = allMembers.value
+        val exporter = activeProfileName.value.ifBlank { "Family" }
 
         return if (format.equals("CSV", ignoreCase = true)) {
-            com.example.data.util.LedgerExportImportManager.exportToCsv(txs, year, months)
+            LedgerExportImportManager.exportToCsv(txs, year, months)
         } else {
-            com.example.data.util.LedgerExportImportManager.exportToJson(txs, invs, year, months, currentMember)
+            LedgerExportImportManager.exportToJson(txs, invs, profiles, year, months, exporter)
         }
     }
 
     suspend fun importLedgerData(
-        preview: com.example.data.util.LedgerImportPreview,
+        preview: LedgerImportPreview,
         targetYear: Int?,
         targetMonths: Set<Int>
-    ): com.example.data.util.ImportResult {
+    ): ImportResult {
         val filteredTx = if (targetYear != null) {
             preview.allTransactions.filter {
-                com.example.data.util.LedgerExportImportManager.matchesYearAndMonths(it.date, targetYear, targetMonths)
+                LedgerExportImportManager.matchesYearAndMonths(it.date, targetYear, targetMonths)
             }
         } else {
             preview.allTransactions
@@ -582,17 +693,18 @@ class FamilyBooksViewModel(application: Application) : AndroidViewModel(applicat
 
         val filteredInv = if (targetYear != null) {
             preview.allInvoices.filter {
-                com.example.data.util.LedgerExportImportManager.matchesYearAndMonths(it.date, targetYear, targetMonths)
+                LedgerExportImportManager.matchesYearAndMonths(it.date, targetYear, targetMonths)
             }
         } else {
             preview.allInvoices
         }
 
-        return repository.importLedgerRecords(filteredTx, filteredInv, targetYear, targetMonths)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        syncEngine.stop()
+        return repository.importLedgerRecords(
+            transactions = filteredTx,
+            invoices = filteredInv,
+            profiles = preview.allProfiles,
+            year = targetYear,
+            months = targetMonths
+        )
     }
 }

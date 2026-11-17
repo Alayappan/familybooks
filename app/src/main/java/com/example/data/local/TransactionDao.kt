@@ -19,9 +19,6 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: String): TransactionEntity?
 
-    @Query("SELECT * FROM transactions WHERE updatedAt > :sinceTimestamp")
-    suspend fun getTransactionsModifiedSince(sinceTimestamp: Long): List<TransactionEntity>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(transaction: TransactionEntity)
 

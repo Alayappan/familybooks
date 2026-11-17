@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,7 +24,6 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CompareArrows
-import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
@@ -42,6 +44,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.FamilyMemberEntity
 import com.example.ui.theme.CardBorderLight
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.ExpenseRedBg
@@ -56,15 +59,78 @@ import com.example.viewmodel.FamilyBooksViewModel
 @Composable
 fun AnalyticsScreen(
     monthAnalytics: FamilyBooksViewModel.MonthAnalyticsSummary,
+    profiles: List<FamilyMemberEntity>,
+    selectedProfile: String,
+    onSelectProfile: (String) -> Unit,
     cashInHandBalance: Double
 ) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp)
             .testTag("analytics_screen")
     ) {
         item {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Profile Selector Bar for Per-Profile Analysis
+            Text(
+                text = "Analyze Scope (Family or Individual Profile)",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Navy900
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val options = listOf("ALL") + profiles.map { it.name }.distinct()
+                options.forEach { profileKey ->
+                    val isSelected = selectedProfile.equals(profileKey, ignoreCase = true)
+                    val label = if (profileKey == "ALL") "All Family" else profileKey
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = if (isSelected) Navy900 else Color.White,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isSelected) Navy900 else CardBorderLight
+                        ),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable { onSelectProfile(profileKey) }
+                            .testTag("analytics_profile_chip_$profileKey")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        ) {
+                            if (profileKey != "ALL") {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) TealAccent else FormatUtils.getMemberAvatarColor(profileKey)
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                            }
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color.White else Navy900
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
             // Month on Month Comparison Header Card
             ElevatedCard(
                 colors = CardDefaults.elevatedCardColors(containerColor = Navy900),
@@ -79,16 +145,17 @@ fun AnalyticsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "MONTH-ON-MONTH ANALYSIS",
+                                text = if (selectedProfile == "ALL") "FAMILY MONTH-ON-MONTH"
+                                else "${selectedProfile.uppercase()} • PROFILE ANALYSIS",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp,
-                                color = Color.White.copy(alpha = 0.7f)
+                                color = TealAccent
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${monthAnalytics.currentMonthLabel} vs ${monthAnalytics.previousMonthLabel}",
-                                fontSize = 16.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
@@ -119,19 +186,17 @@ fun AnalyticsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
                     Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // MoM Comparison KPIs: Expenses & Incomes
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Expenses MoM
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Expenses This Month",
+                                text = if (selectedProfile == "ALL") "Expenses This Month" else "Paid by $selectedProfile",
                                 fontSize = 11.sp,
                                 color = Color.White.copy(alpha = 0.75f)
                             )
@@ -161,10 +226,9 @@ fun AnalyticsScreen(
                             }
                         }
 
-                        // Incomes MoM
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Income This Month",
+                                text = if (selectedProfile == "ALL") "Income This Month" else "Income ($selectedProfile)",
                                 fontSize = 11.sp,
                                 color = Color.White.copy(alpha = 0.75f)
                             )
@@ -195,11 +259,10 @@ fun AnalyticsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
                     Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // Net Savings MoM Comparison
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -222,7 +285,7 @@ fun AnalyticsScreen(
                         }
 
                         Text(
-                            text = "Last month: ${FormatUtils.formatCurrency(monthAnalytics.previousNetSavings)}",
+                            text = "Last mo: ${FormatUtils.formatCurrency(monthAnalytics.previousNetSavings)}",
                             fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.7f)
                         )
@@ -230,9 +293,107 @@ fun AnalyticsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Cash in Hand Pool Analysis Card
+            // Attribution, Contributions & Liabilities Card (for selected profile or family)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CardBorderLight),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = if (selectedProfile == "ALL") "Shares & Liabilities Overview"
+                        else "$selectedProfile • Attribution & Liabilities",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Navy900
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (selectedProfile == "ALL") "Total Expenses" else "Spent For $selectedProfile",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                            Text(
+                                text = FormatUtils.formatCurrency(monthAnalytics.expenseForProfileThisMonth),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Navy900
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Shares Contributed",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                            Text(
+                                text = FormatUtils.formatCurrency(monthAnalytics.contributionsProvidedThisMonth),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF007563)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = Color(0xFFF0F4F8))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "3rd-Party Debt Owed", fontSize = 11.sp, color = Color.Gray)
+                            Text(
+                                text = FormatUtils.formatCurrency(monthAnalytics.thirdPartyDebtOwed),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ExpenseRed
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "3rd-Party Receivables", fontSize = 11.sp, color = Color.Gray)
+                            Text(
+                                text = FormatUtils.formatCurrency(monthAnalytics.thirdPartyReceivable),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IncomeGreen
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Family IOUs Owed", fontSize = 11.sp, color = Color.Gray)
+                            Text(
+                                text = FormatUtils.formatCurrency(monthAnalytics.familyDebtOwed),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ExpenseRed
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Family IOUs Receivable", fontSize = 11.sp, color = Color.Gray)
+                            Text(
+                                text = FormatUtils.formatCurrency(monthAnalytics.familyReceivable),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = IncomeGreen
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Cash in Hand Pool Card
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(14.dp),
@@ -246,7 +407,7 @@ fun AnalyticsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -270,7 +431,7 @@ fun AnalyticsScreen(
                                 color = Navy900
                             )
                             Text(
-                                text = "Cash Spent This Mo: ${FormatUtils.formatCurrency(monthAnalytics.cashSpentCurrentMonth)} (Last: ${FormatUtils.formatCurrency(monthAnalytics.cashSpentPreviousMonth)})",
+                                text = "Cash Spent: ${FormatUtils.formatCurrency(monthAnalytics.cashSpentCurrentMonth)} (Last: ${FormatUtils.formatCurrency(monthAnalytics.cashSpentPreviousMonth)})",
                                 fontSize = 11.sp,
                                 color = Color.Gray
                             )
@@ -286,32 +447,22 @@ fun AnalyticsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Compare Similar Expenses Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Compare Similar Expenses",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Navy900
-                    )
-                    Text(
-                        text = "Groceries vs Groceries, Utilities vs Utilities, etc.",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                }
-            }
+            Text(
+                text = "Category-by-Category Comparison",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Navy900
+            )
+            Text(
+                text = "This month vs last month" + if (selectedProfile != "ALL") " for $selectedProfile" else "",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // Category by Category MoM Comparison Cards
         if (monthAnalytics.categoryComparisons.isEmpty()) {
             item {
                 Card(
@@ -334,7 +485,7 @@ fun AnalyticsScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Log transactions across multiple months to see automatic similar expense comparisons.",
+                            text = "Log transactions to see automatic category and month-on-month comparisons.",
                             fontSize = 12.sp,
                             color = Color.Gray,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -349,10 +500,9 @@ fun AnalyticsScreen(
             }
         }
 
-        // Payment Method Breakdown
         if (monthAnalytics.paymentMethodBreakdown.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "Payment Methods Breakdown (This Month)",
                     fontSize = 15.sp,
@@ -378,12 +528,7 @@ fun AnalyticsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = method,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Navy900
-                                )
+                                Text(text = method, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Navy900)
                                 Text(
                                     text = "${FormatUtils.formatCurrency(amt)} (${(pct * 100).toInt()}%)",
                                     fontSize = 13.sp,
@@ -428,7 +573,6 @@ fun CategoryComparisonCard(item: FamilyBooksViewModel.CategoryMoMComparison) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row: Category name, icon, and comparison badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -450,15 +594,9 @@ fun CategoryComparisonCard(item: FamilyBooksViewModel.CategoryMoMComparison) {
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = item.category,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = Navy900
-                    )
+                    Text(text = item.category, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Navy900)
                 }
 
-                // Delta Status Badge
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = when {
@@ -506,25 +644,10 @@ fun CategoryComparisonCard(item: FamilyBooksViewModel.CategoryMoMComparison) {
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Comparative Dual Bars: This Month vs Last Month
-            // This Month Bar
             Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "This Month",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Navy900
-                    )
-                    Text(
-                        text = FormatUtils.formatCurrency(item.currentMonthAmount),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Navy900
-                    )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(text = "This Month", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Navy900)
+                    Text(text = FormatUtils.formatCurrency(item.currentMonthAmount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Navy900)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(
@@ -540,24 +663,10 @@ fun CategoryComparisonCard(item: FamilyBooksViewModel.CategoryMoMComparison) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Last Month Bar
             Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Last Month",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = FormatUtils.formatCurrency(item.previousMonthAmount),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Gray
-                    )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(text = "Last Month", fontSize = 12.sp, color = Color.Gray)
+                    Text(text = FormatUtils.formatCurrency(item.previousMonthAmount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(

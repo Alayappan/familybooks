@@ -655,7 +655,8 @@ fun ExportImportLedgerDialog(
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "${preview.allTransactions.size} Transactions, ${preview.allInvoices.size} Invoices found",
+                                        text = "${preview.allTransactions.size} Entries, ${preview.allInvoices.size} Liabilities" +
+                                            if (preview.allProfiles.isNotEmpty()) ", ${preview.allProfiles.size} Profiles" else "",
                                         fontSize = 12.sp,
                                         color = Navy900
                                     )

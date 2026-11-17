@@ -6,6 +6,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +26,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
@@ -40,10 +41,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,11 +53,10 @@ import com.example.data.model.FamilyMemberEntity
 import com.example.data.model.TransactionEntity
 import com.example.ui.theme.CardBorderLight
 import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.ExpenseRedBg
 import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.IncomeGreenBg
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
+import com.example.ui.theme.TealLight
 import com.example.ui.util.FormatUtils
 
 @Composable
@@ -69,19 +65,15 @@ fun LedgerScreen(
     members: List<FamilyMemberEntity>,
     searchQuery: String,
     selectedTypeFilter: String,
-    selectedCategoryFilter: String,
     selectedMemberFilter: String,
     onSearchChange: (String) -> Unit,
     onTypeFilterChange: (String) -> Unit,
-    onCategoryFilterChange: (String) -> Unit,
     onMemberFilterChange: (String) -> Unit,
     onAddTransactionClick: () -> Unit,
     onEditTransactionClick: (TransactionEntity) -> Unit,
     onDeleteTransactionClick: (String) -> Unit,
     onExportImportClick: () -> Unit = {}
 ) {
-    var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
-
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -102,7 +94,6 @@ fun LedgerScreen(
                 .padding(innerPadding)
                 .testTag("ledger_screen")
         ) {
-            // Search Bar
             Surface(
                 color = Color.White,
                 shadowElevation = 1.dp,
@@ -112,7 +103,7 @@ fun LedgerScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = onSearchChange,
-                        placeholder = { Text("Search transactions, notes, paid by...") },
+                        placeholder = { Text("Search category, for/from whom, contributor...") },
                         leadingIcon = {
                             Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.Gray)
                         },
@@ -136,7 +127,6 @@ fun LedgerScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Horizontal Filter Bar
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -144,7 +134,6 @@ fun LedgerScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Type Filters
                         listOf("ALL" to "All Types", "EXPENSE" to "Expenses", "INCOME" to "Income").forEach { (typeKey, label) ->
                             val isSelected = selectedTypeFilter == typeKey
                             Surface(
@@ -164,11 +153,10 @@ fun LedgerScreen(
                             }
                         }
 
-                        // Member Filter Chips
                         val allMemberNames = listOf("ALL") + members.map { it.name }.distinct()
                         allMemberNames.forEach { memberName ->
-                            val isSelected = selectedMemberFilter == memberName
-                            val label = if (memberName == "ALL") "All Members" else memberName
+                            val isSelected = selectedMemberFilter.equals(memberName, ignoreCase = true)
+                            val label = if (memberName == "ALL") "All Profiles" else memberName
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
                                 color = if (isSelected) TealAccent else Color(0xFFF0F4F8),
@@ -193,7 +181,7 @@ fun LedgerScreen(
                                         text = label,
                                         fontSize = 12.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) Navy900 else Navy900
+                                        color = Navy900
                                     )
                                 }
                             }
@@ -202,7 +190,6 @@ fun LedgerScreen(
                 }
             }
 
-            // Summary Header Strip with Export/Import Action
             val totalExpense = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
             val totalIncome = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
 
@@ -253,7 +240,6 @@ fun LedgerScreen(
                 }
             }
 
-            // Transactions List
             if (transactions.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -300,6 +286,7 @@ fun LedgerScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LedgerItemCard(
     transaction: TransactionEntity,
@@ -319,14 +306,11 @@ fun LedgerItemCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Category Icon
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(
-                            FormatUtils.getCategoryColor(transaction.category).copy(alpha = 0.15f)
-                        ),
+                        .background(FormatUtils.getCategoryColor(transaction.category).copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -339,7 +323,6 @@ fun LedgerItemCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Info
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -354,7 +337,7 @@ fun LedgerItemCard(
                             color = Color(0xFFF0F4F8)
                         ) {
                             Text(
-                                text = transaction.paidBy,
+                                text = (if (isExpense) "By: " else "To: ") + transaction.paidBy,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Navy900,
@@ -363,8 +346,54 @@ fun LedgerItemCard(
                         }
                     }
 
+                    // Attribution & Contribution Badges
+                    if ((isExpense && transaction.forWhom.isNotBlank()) ||
+                        (!isExpense && transaction.fromWhom.isNotBlank()) ||
+                        (transaction.contributedBy.isNotBlank() && transaction.contributedAmount > 0)
+                    ) {
+                        Spacer(modifier = Modifier.height(5.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (isExpense && transaction.forWhom.isNotBlank()) {
+                                Surface(shape = RoundedCornerShape(8.dp), color = TealLight) {
+                                    Text(
+                                        text = "For: ${transaction.forWhom}",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF007563),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            if (!isExpense && transaction.fromWhom.isNotBlank()) {
+                                Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFE8F5E9)) {
+                                    Text(
+                                        text = "From: ${transaction.fromWhom}",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = IncomeGreen,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            if (transaction.contributedBy.isNotBlank() && transaction.contributedAmount > 0) {
+                                Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFFFF8E1)) {
+                                    Text(
+                                        text = "Share: ${transaction.contributedBy} (${FormatUtils.formatCurrency(transaction.contributedAmount)})",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF8A5B00),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     if (transaction.notes.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = transaction.notes,
                             fontSize = 12.sp,
@@ -380,7 +409,6 @@ fun LedgerItemCard(
                     )
                 }
 
-                // Amount
                 Text(
                     text = (if (isExpense) "-" else "+") + FormatUtils.formatCurrency(transaction.amount),
                     fontWeight = FontWeight.Bold,
@@ -389,9 +417,8 @@ fun LedgerItemCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            // Action Buttons Strip (Edit / Delete)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,

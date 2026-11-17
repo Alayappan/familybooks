@@ -10,13 +10,13 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Dashboard
-import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Payments
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -36,25 +36,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.model.FamilyMemberEntity
+import com.example.data.model.LiabilityType
 import com.example.data.model.TransactionEntity
-import com.example.ui.components.TopAppBarAndSyncBanner
+import com.example.ui.components.TopAppBarHeader
+import com.example.ui.dialogs.AddEditProfileDialog
 import com.example.ui.dialogs.AddInvoiceDialog
 import com.example.ui.dialogs.AddTransactionDialog
-import com.example.ui.dialogs.DirectIpDialog
-import com.example.ui.dialogs.EditProfileDialog
 import com.example.ui.dialogs.ExportImportLedgerDialog
-import com.example.ui.dialogs.PairDeviceDialog
 import com.example.ui.dialogs.RefillCashDialog
 import com.example.ui.dialogs.SplitExpenseDialog
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.InvoicesScreen
 import com.example.ui.screens.LedgerScreen
-import com.example.ui.screens.SyncHubScreen
+import com.example.ui.screens.ProfilesScreen
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
 import com.example.viewmodel.FamilyBooksViewModel
@@ -64,8 +63,8 @@ enum class AppTab(val title: String) {
     DASHBOARD("Dashboard"),
     LEDGER("Ledger"),
     ANALYTICS("Analytics"),
-    INVOICES("Invoices"),
-    SYNC_HUB("P2P Sync")
+    INVOICES("Debts"),
+    PROFILES("Profiles")
 }
 
 @Composable
@@ -78,12 +77,15 @@ fun FamilyBooksApp(
 
     // Dialog States
     var showAddTransactionDialog by remember { mutableStateOf(false) }
+    var initialTxType by remember { mutableStateOf("EXPENSE") }
     var editingTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
+
     var showAddInvoiceDialog by remember { mutableStateOf(false) }
+    var initialLiabilityType by remember { mutableStateOf(LiabilityType.FAMILY_IOU) }
+
     var showSplitExpenseDialog by remember { mutableStateOf(false) }
-    var showDirectIpDialog by remember { mutableStateOf(false) }
-    var showPairDeviceDialog by remember { mutableStateOf(false) }
-    var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showAddEditProfileDialog by remember { mutableStateOf(false) }
+    var editingProfile by remember { mutableStateOf<FamilyMemberEntity?>(null) }
     var showRefillCashDialog by remember { mutableStateOf(false) }
     var showExportImportDialog by remember { mutableStateOf(false) }
 
@@ -92,53 +94,39 @@ fun FamilyBooksApp(
     val filteredTransactions by viewModel.filteredTransactions.collectAsStateWithLifecycle()
     val invoices by viewModel.allInvoices.collectAsStateWithLifecycle()
     val members by viewModel.allMembers.collectAsStateWithLifecycle()
-    val memberBalances by viewModel.memberBalances.collectAsStateWithLifecycle()
-    val syncLogs by viewModel.syncLogs.collectAsStateWithLifecycle()
+    val profileSummaries by viewModel.profileSummaries.collectAsStateWithLifecycle()
     val analytics by viewModel.analytics.collectAsStateWithLifecycle()
     val monthAnalytics by viewModel.monthAnalytics.collectAsStateWithLifecycle()
     val cashInHandBalance by viewModel.cashInHandBalance.collectAsStateWithLifecycle()
+    val activeProfileName by viewModel.activeProfileName.collectAsStateWithLifecycle()
 
     // Search and Filter States
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedTypeFilter by viewModel.selectedTypeFilter.collectAsStateWithLifecycle()
-    val selectedCategoryFilter by viewModel.selectedCategoryFilter.collectAsStateWithLifecycle()
     val selectedMemberFilter by viewModel.selectedMemberFilter.collectAsStateWithLifecycle()
+    val selectedAnalyticsProfile by viewModel.selectedAnalyticsProfile.collectAsStateWithLifecycle()
 
-    // P2P Sync Engine States
-    val currentMember by viewModel.syncEngine.currentMemberName.collectAsStateWithLifecycle()
-    val currentDeviceName by viewModel.currentDeviceName.collectAsStateWithLifecycle()
-    val localIp by viewModel.syncEngine.localIp.collectAsStateWithLifecycle()
-    val localPort by viewModel.syncEngine.localPort.collectAsStateWithLifecycle()
-    val isSyncing by viewModel.syncEngine.isSyncing.collectAsStateWithLifecycle()
-    val statusMessage by viewModel.syncEngine.syncStatusMessage.collectAsStateWithLifecycle()
-    val lastSyncedTime by viewModel.syncEngine.lastSyncedTime.collectAsStateWithLifecycle()
-    val peersMap by viewModel.syncEngine.discoveredPeers.collectAsStateWithLifecycle()
-    val peers = peersMap.values.toList()
-    val lastSyncSummary by viewModel.lastSyncSummary.collectAsStateWithLifecycle()
-    val isScanningNetwork by viewModel.isScanningNetwork.collectAsStateWithLifecycle()
-    val scannedPairingDevices by viewModel.scannedPairingDevices.collectAsStateWithLifecycle()
+    val activeProfileEntity = remember(members, activeProfileName) {
+        members.firstOrNull { it.name.equals(activeProfileName, ignoreCase = true) }
+    }
 
-    // Back handling: pop to Dashboard if in another tab
     BackHandler(enabled = currentTab != AppTab.DASHBOARD) {
         currentTab = AppTab.DASHBOARD
     }
 
     Scaffold(
         topBar = {
-            TopAppBarAndSyncBanner(
-                currentMember = currentMember,
-                currentDeviceName = currentDeviceName,
-                statusMessage = statusMessage,
-                isSyncing = isSyncing,
-                discoveredPeerCount = peers.size,
-                onEditProfileClick = { showEditProfileDialog = true },
-                onSyncClick = {
-                    viewModel.syncNow()
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Initiating P2P synchronization...")
+            TopAppBarHeader(
+                activeProfile = activeProfileEntity,
+                profileCount = members.size,
+                onProfileIconClick = {
+                    if (members.isEmpty()) {
+                        editingProfile = null
+                        showAddEditProfileDialog = true
+                    } else {
+                        currentTab = AppTab.PROFILES
                     }
-                },
-                onBannerClick = { currentTab = AppTab.SYNC_HUB }
+                }
             )
         },
         bottomBar = {
@@ -149,7 +137,6 @@ fun FamilyBooksApp(
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .testTag("bottom_nav_bar")
             ) {
-                // Dashboard
                 NavigationBarItem(
                     selected = currentTab == AppTab.DASHBOARD,
                     onClick = { currentTab = AppTab.DASHBOARD },
@@ -170,7 +157,6 @@ fun FamilyBooksApp(
                     modifier = Modifier.testTag("nav_tab_dashboard")
                 )
 
-                // Ledger
                 NavigationBarItem(
                     selected = currentTab == AppTab.LEDGER,
                     onClick = { currentTab = AppTab.LEDGER },
@@ -191,7 +177,6 @@ fun FamilyBooksApp(
                     modifier = Modifier.testTag("nav_tab_ledger")
                 )
 
-                // Analytics
                 NavigationBarItem(
                     selected = currentTab == AppTab.ANALYTICS,
                     onClick = { currentTab = AppTab.ANALYTICS },
@@ -212,17 +197,16 @@ fun FamilyBooksApp(
                     modifier = Modifier.testTag("nav_tab_analytics")
                 )
 
-                // Invoices
                 NavigationBarItem(
                     selected = currentTab == AppTab.INVOICES,
                     onClick = { currentTab = AppTab.INVOICES },
                     icon = {
                         Icon(
                             if (currentTab == AppTab.INVOICES) Icons.Filled.Payments else Icons.Outlined.Payments,
-                            contentDescription = "Invoices"
+                            contentDescription = "Debts & Shares"
                         )
                     },
-                    label = { Text("Invoices", fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+                    label = { Text("Debts", fontSize = 10.sp, fontWeight = FontWeight.Medium) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Navy900,
                         selectedTextColor = TealAccent,
@@ -233,17 +217,16 @@ fun FamilyBooksApp(
                     modifier = Modifier.testTag("nav_tab_invoices")
                 )
 
-                // P2P Sync Hub
                 NavigationBarItem(
-                    selected = currentTab == AppTab.SYNC_HUB,
-                    onClick = { currentTab = AppTab.SYNC_HUB },
+                    selected = currentTab == AppTab.PROFILES,
+                    onClick = { currentTab = AppTab.PROFILES },
                     icon = {
                         Icon(
-                            if (currentTab == AppTab.SYNC_HUB) Icons.Filled.Hub else Icons.Outlined.Hub,
-                            contentDescription = "Sync Hub"
+                            if (currentTab == AppTab.PROFILES) Icons.Filled.People else Icons.Outlined.People,
+                            contentDescription = "Profiles"
                         )
                     },
-                    label = { Text("P2P Sync", fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+                    label = { Text("Profiles", fontSize = 10.sp, fontWeight = FontWeight.Medium) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Navy900,
                         selectedTextColor = TealAccent,
@@ -251,7 +234,7 @@ fun FamilyBooksApp(
                         unselectedIconColor = Color.White.copy(alpha = 0.6f),
                         unselectedTextColor = Color.White.copy(alpha = 0.6f)
                     ),
-                    modifier = Modifier.testTag("nav_tab_sync_hub")
+                    modifier = Modifier.testTag("nav_tab_profiles")
                 )
             }
         },
@@ -268,16 +251,20 @@ fun FamilyBooksApp(
                     analytics = analytics,
                     cashInHandBalance = cashInHandBalance,
                     recentTransactions = transactions,
-                    pendingInvoices = invoices.filter { it.status == "UNPAID" },
                     onAddExpenseClick = {
                         editingTransaction = null
+                        initialTxType = "EXPENSE"
                         showAddTransactionDialog = true
                     },
                     onAddIncomeClick = {
                         editingTransaction = null
+                        initialTxType = "INCOME"
                         showAddTransactionDialog = true
                     },
-                    onNewInvoiceClick = { showAddInvoiceDialog = true },
+                    onNewInvoiceClick = {
+                        initialLiabilityType = LiabilityType.THIRD_PARTY_PAYABLE
+                        showAddInvoiceDialog = true
+                    },
                     onSplitExpenseClick = { showSplitExpenseDialog = true },
                     onRefillCashClick = { showRefillCashDialog = true },
                     onViewAnalyticsClick = { currentTab = AppTab.ANALYTICS },
@@ -294,14 +281,13 @@ fun FamilyBooksApp(
                     members = members,
                     searchQuery = searchQuery,
                     selectedTypeFilter = selectedTypeFilter,
-                    selectedCategoryFilter = selectedCategoryFilter,
                     selectedMemberFilter = selectedMemberFilter,
                     onSearchChange = { viewModel.setSearchQuery(it) },
                     onTypeFilterChange = { viewModel.setTypeFilter(it) },
-                    onCategoryFilterChange = { viewModel.setCategoryFilter(it) },
                     onMemberFilterChange = { viewModel.setMemberFilter(it) },
                     onAddTransactionClick = {
                         editingTransaction = null
+                        initialTxType = "EXPENSE"
                         showAddTransactionDialog = true
                     },
                     onEditTransactionClick = { tx ->
@@ -311,7 +297,7 @@ fun FamilyBooksApp(
                     onDeleteTransactionClick = { id ->
                         viewModel.deleteTransaction(id)
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Transaction deleted")
+                            snackbarHostState.showSnackbar("Entry deleted")
                         }
                     },
                     onExportImportClick = { showExportImportDialog = true }
@@ -319,74 +305,72 @@ fun FamilyBooksApp(
 
                 AppTab.ANALYTICS -> AnalyticsScreen(
                     monthAnalytics = monthAnalytics,
+                    profiles = members,
+                    selectedProfile = selectedAnalyticsProfile,
+                    onSelectProfile = { viewModel.setAnalyticsProfile(it) },
                     cashInHandBalance = cashInHandBalance
                 )
 
                 AppTab.INVOICES -> InvoicesScreen(
                     invoices = invoices,
-                    memberBalances = memberBalances,
-                    currentMember = currentMember,
-                    onNewInvoiceClick = { showAddInvoiceDialog = true },
+                    profileSummaries = profileSummaries,
+                    onNewInvoiceClick = { defaultType ->
+                        initialLiabilityType = defaultType
+                        showAddInvoiceDialog = true
+                    },
                     onSplitExpenseClick = { showSplitExpenseDialog = true },
+                    onRecordPayment = { id, amt ->
+                        viewModel.recordLiabilityPayment(id, amt)
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Payment applied")
+                        }
+                    },
                     onSettleInvoice = { id ->
                         viewModel.settleInvoice(id)
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Invoice marked as settled!")
+                            snackbarHostState.showSnackbar("Marked as settled")
                         }
                     },
                     onDeleteInvoice = { id ->
                         viewModel.deleteInvoice(id)
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Invoice deleted")
+                            snackbarHostState.showSnackbar("Liability deleted")
                         }
                     }
                 )
 
-                AppTab.SYNC_HUB -> SyncHubScreen(
-                    currentMember = currentMember,
-                    currentDeviceName = currentDeviceName,
-                    localIp = localIp,
-                    localPort = localPort,
-                    isSyncing = isSyncing,
-                    statusMessage = statusMessage,
-                    lastSyncedTime = lastSyncedTime,
-                    members = members,
-                    peers = peers,
-                    syncLogs = syncLogs,
-                    lastSyncSummary = lastSyncSummary,
-                    onSyncAllClick = {
-                        viewModel.syncNow()
+                AppTab.PROFILES -> ProfilesScreen(
+                    profiles = members,
+                    profileSummaries = profileSummaries,
+                    activeProfileName = activeProfileName,
+                    onAddProfileClick = {
+                        editingProfile = null
+                        showAddEditProfileDialog = true
+                    },
+                    onEditProfileClick = { member ->
+                        editingProfile = member
+                        showAddEditProfileDialog = true
+                    },
+                    onDeleteProfileClick = { member ->
+                        viewModel.deleteProfile(member.id)
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Synchronizing across all available family devices...")
+                            snackbarHostState.showSnackbar("Removed profile '${member.name}'")
                         }
                     },
-                    onSyncPeerClick = { peer ->
-                        viewModel.syncWithPeer(peer)
+                    onSetActiveProfile = { name ->
+                        viewModel.setActiveProfile(name)
                         coroutineScope.launch {
-                            val dev = peer.deviceName.ifBlank { "device" }
-                            snackbarHostState.showSnackbar("Syncing with ${peer.memberName}'s $dev...")
+                            snackbarHostState.showSnackbar("Active profile: $name")
                         }
                     },
-                    onSyncMemberClick = { member ->
-                        viewModel.syncMember(member)
-                        coroutineScope.launch {
-                            val dev = member.deviceName.ifBlank { "device" }
-                            snackbarHostState.showSnackbar("Syncing with ${member.name}'s $dev...")
-                        }
+                    onAnalyzeProfileClick = { name ->
+                        viewModel.setAnalyticsProfile(name)
+                        currentTab = AppTab.ANALYTICS
                     },
-                    onRemoveMemberClick = { member ->
-                        viewModel.removePairedDevice(member.id, member.deviceId)
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Removed ${member.name}'s paired device")
-                        }
+                    onViewProfileLedgerClick = { name ->
+                        viewModel.setMemberFilter(name)
+                        currentTab = AppTab.LEDGER
                     },
-                    onDirectIpClick = { showDirectIpDialog = true },
-                    onPairSimulatedClick = {
-                        viewModel.scanLocalNetworkForPairing()
-                        showPairDeviceDialog = true
-                    },
-                    onEditProfileClick = { showEditProfileDialog = true },
-                    onDismissSyncSummary = { viewModel.dismissSyncSummary() },
                     onExportImportClick = { showExportImportDialog = true }
                 )
             }
@@ -394,22 +378,35 @@ fun FamilyBooksApp(
     }
 
     // --- Dialogs ---
-
     if (showAddTransactionDialog) {
         AddTransactionDialog(
             members = members,
-            defaultMember = currentMember,
+            defaultMember = activeProfileName,
+            initialType = initialTxType,
             existingTransaction = editingTransaction,
             onDismiss = {
                 showAddTransactionDialog = false
                 editingTransaction = null
             },
-            onSave = { id, type, amount, date, category, paymentMethod, paidBy, notes ->
-                viewModel.saveTransaction(id, type, amount, date, category, paymentMethod, paidBy, notes)
+            onSave = { id, type, amount, date, category, paymentMethod, paidBy, forWhom, fromWhom, contributedBy, contributedAmount, notes ->
+                viewModel.saveTransaction(
+                    id = id,
+                    type = type,
+                    amount = amount,
+                    date = date,
+                    category = category,
+                    paymentMethod = paymentMethod,
+                    paidBy = paidBy,
+                    forWhom = forWhom,
+                    fromWhom = fromWhom,
+                    contributedBy = contributedBy,
+                    contributedAmount = contributedAmount,
+                    notes = notes
+                )
                 showAddTransactionDialog = false
                 editingTransaction = null
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Transaction logged successfully")
+                    snackbarHostState.showSnackbar("Entry saved to offline ledger")
                 }
             }
         )
@@ -418,11 +415,14 @@ fun FamilyBooksApp(
     if (showAddInvoiceDialog) {
         AddInvoiceDialog(
             members = members,
-            currentMember = currentMember,
+            currentMember = activeProfileName,
+            initialLiabilityType = initialLiabilityType,
             onDismiss = { showAddInvoiceDialog = false },
-            onSave = { title, fromMember, toMember, amount, dueDate, notes ->
+            onSave = { title, liabilityType, linkedProfile, fromMember, toMember, amount, dueDate, notes ->
                 viewModel.saveInvoice(
                     title = title,
+                    liabilityType = liabilityType,
+                    linkedProfile = linkedProfile,
                     fromMember = fromMember,
                     toMember = toMember,
                     amount = amount,
@@ -431,7 +431,7 @@ fun FamilyBooksApp(
                 )
                 showAddInvoiceDialog = false
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Family invoice created")
+                    snackbarHostState.showSnackbar("Debt / liability recorded")
                 }
             }
         )
@@ -440,13 +440,19 @@ fun FamilyBooksApp(
     if (showSplitExpenseDialog) {
         SplitExpenseDialog(
             members = members,
-            currentMember = currentMember,
+            currentMember = activeProfileName,
             onDismiss = { showSplitExpenseDialog = false },
-            onConfirmSplit = { title, totalAmount, paidBy, participatingMembers ->
-                viewModel.splitExpenseAcrossMembers(title, totalAmount, paidBy, participatingMembers)
+            onConfirmSplit = { title, totalAmount, paidBy, participatingMembers, alsoLogMainExpense ->
+                viewModel.splitExpenseAcrossMembers(
+                    title = title,
+                    totalAmount = totalAmount,
+                    paidBy = paidBy,
+                    participatingMembers = participatingMembers,
+                    alsoLogMainExpense = alsoLogMainExpense
+                )
                 showSplitExpenseDialog = false
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Bill split among ${participatingMembers.size} members")
+                    snackbarHostState.showSnackbar("Bill split among ${participatingMembers.size} profiles")
                 }
             }
         )
@@ -471,51 +477,24 @@ fun FamilyBooksApp(
         )
     }
 
-    if (showDirectIpDialog) {
-        DirectIpDialog(
-            onDismiss = { showDirectIpDialog = false },
-            onConnect = { ip, port, name ->
-                viewModel.connectDirectPeer(ip, port, name)
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Connecting to $ip:$port and pairing as Family Member...")
-                }
-            }
-        )
-    }
-
-    if (showPairDeviceDialog) {
-        PairDeviceDialog(
-            currentMember = currentMember,
-            currentDeviceName = currentDeviceName,
-            discoveredDevices = scannedPairingDevices,
-            isScanning = isScanningNetwork,
-            onDismiss = { showPairDeviceDialog = false },
-            onScanAgain = { viewModel.scanLocalNetworkForPairing() },
-            onPairFoundDevice = { peer ->
-                viewModel.pairDiscoveredDevice(peer)
-                coroutineScope.launch {
-                    val dev = peer.deviceName.ifBlank { "device" }
-                    snackbarHostState.showSnackbar("Paired with ${peer.memberName}'s $dev!")
-                }
+    if (showAddEditProfileDialog) {
+        AddEditProfileDialog(
+            existingProfile = editingProfile,
+            onDismiss = {
+                showAddEditProfileDialog = false
+                editingProfile = null
             },
-            onPairManualOrTest = { name, role, sampleExpense ->
-                viewModel.pairFamilyDevice(name, role, sampleExpense)
+            onSaveProfile = { id, name, role, colorHex, notes, isPrimary ->
+                viewModel.saveProfile(
+                    id = id,
+                    name = name,
+                    role = role,
+                    avatarColorHex = colorHex,
+                    notes = notes,
+                    isPrimary = isPrimary
+                )
                 coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Paired '$name' ($role) as Family Member!")
-                }
-            }
-        )
-    }
-
-    if (showEditProfileDialog) {
-        EditProfileDialog(
-            currentName = currentMember,
-            currentDeviceName = currentDeviceName,
-            onDismiss = { showEditProfileDialog = false },
-            onSaveProfile = { newName, newDeviceName ->
-                viewModel.updateProfile(newName, newDeviceName)
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Profile updated: $newName ($newDeviceName)")
+                    snackbarHostState.showSnackbar("Saved profile '$name'")
                 }
             }
         )
@@ -525,7 +504,7 @@ fun FamilyBooksApp(
         ExportImportLedgerDialog(
             transactions = transactions,
             invoices = invoices,
-            currentMember = currentMember,
+            currentMember = activeProfileName.ifBlank { "Family" },
             onDismiss = { showExportImportDialog = false },
             onExport = { year, months, format ->
                 viewModel.exportLedgerData(year, months, format)

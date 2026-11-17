@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,9 +47,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.model.FamilyMemberEntity
+import com.example.data.model.LiabilityType
 import com.example.ui.theme.CardBorderLight
 import com.example.ui.theme.ExpenseRed
+import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.Navy900
+import com.example.ui.theme.PendingOrange
 import com.example.ui.theme.TealAccent
 import com.example.ui.util.FormatUtils
 
@@ -57,9 +61,12 @@ import com.example.ui.util.FormatUtils
 fun AddInvoiceDialog(
     members: List<FamilyMemberEntity>,
     currentMember: String,
+    initialLiabilityType: String = LiabilityType.FAMILY_IOU,
     onDismiss: () -> Unit,
     onSave: (
         title: String,
+        liabilityType: String,
+        linkedProfile: String,
         fromMember: String,
         toMember: String,
         amount: Double,
@@ -67,21 +74,36 @@ fun AddInvoiceDialog(
         notes: String
     ) -> Unit
 ) {
+    val profileNames = remember(members) { members.map { it.name }.distinct() }
+    val defaultOwner = currentMember.ifBlank { profileNames.firstOrNull() ?: "" }
+
+    var liabilityType by remember { mutableStateOf(initialLiabilityType) }
     var title by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
-    val memberNames = if (members.isNotEmpty()) {
-        members.map { it.name }.distinct()
-    } else {
-        listOf(currentMember)
-    }
-
-    var toMember by remember { mutableStateOf(currentMember) } // Default: current member is owed
+    var linkedProfile by remember { mutableStateOf(defaultOwner) }
     var fromMember by remember {
-        mutableStateOf(memberNames.firstOrNull { !it.equals(currentMember, ignoreCase = true) } ?: "Dad")
+        mutableStateOf(
+            when (initialLiabilityType) {
+                LiabilityType.THIRD_PARTY_PAYABLE -> defaultOwner
+                LiabilityType.THIRD_PARTY_RECEIVABLE -> ""
+                else -> profileNames.firstOrNull { !it.equals(defaultOwner, ignoreCase = true) } ?: ""
+            }
+        )
+    }
+    var toMember by remember {
+        mutableStateOf(
+            when (initialLiabilityType) {
+                LiabilityType.THIRD_PARTY_PAYABLE -> ""
+                LiabilityType.THIRD_PARTY_RECEIVABLE -> defaultOwner
+                else -> defaultOwner
+            }
+        )
     }
     var notes by remember { mutableStateOf("") }
-    var dueDaysOption by remember { mutableStateOf(7) } // 7, 14, 30, or 0 (no due date)
+    var dueDaysOption by remember { mutableIntStateOf(30) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val thirdPartyPresets = listOf("Bank / Loan", "Credit Card", "Landlord", "Friend", "Clinic / Hospital", "Vendor")
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -107,13 +129,13 @@ fun AddInvoiceDialog(
                 ) {
                     Column {
                         Text(
-                            text = "New Family Invoice",
+                            text = "Add Debt / Liability",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = Navy900
                         )
                         Text(
-                            text = "Record informal debts & splits between members",
+                            text = "Track family IOUs & third-party debts per profile",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -123,17 +145,83 @@ fun AddInvoiceDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Invoice Title
+                // Liability Type Selector
+                Text(
+                    text = "Liability Type",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Navy900
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        Triple(LiabilityType.FAMILY_IOU, "Family IOU", Navy900),
+                        Triple(LiabilityType.THIRD_PARTY_PAYABLE, "3rd-Party Debt", ExpenseRed),
+                        Triple(LiabilityType.THIRD_PARTY_RECEIVABLE, "3rd-Party Owed", IncomeGreen)
+                    ).forEach { (typeKey, label, activeColor) ->
+                        val isSelected = liabilityType == typeKey
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) activeColor else Color(0xFFF0F4F8),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    liabilityType = typeKey
+                                    errorMessage = null
+                                    when (typeKey) {
+                                        LiabilityType.FAMILY_IOU -> {
+                                            toMember = defaultOwner
+                                            fromMember = profileNames.firstOrNull { !it.equals(defaultOwner, ignoreCase = true) } ?: ""
+                                        }
+                                        LiabilityType.THIRD_PARTY_PAYABLE -> {
+                                            linkedProfile = defaultOwner
+                                            fromMember = defaultOwner
+                                            toMember = ""
+                                        }
+                                        LiabilityType.THIRD_PARTY_RECEIVABLE -> {
+                                            linkedProfile = defaultOwner
+                                            fromMember = ""
+                                            toMember = defaultOwner
+                                        }
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.White else Navy900,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 OutlinedTextField(
                     value = title,
                     onValueChange = {
                         title = it
                         errorMessage = null
                     },
-                    label = { Text("Invoice Title / Purpose") },
-                    placeholder = { Text("e.g. Electricity bill, Weekend groceries split") },
+                    label = { Text("Title / Purpose") },
+                    placeholder = {
+                        Text(
+                            when (liabilityType) {
+                                LiabilityType.THIRD_PARTY_PAYABLE -> "e.g. Car Loan EMI, Medical Bill, Rent Due"
+                                LiabilityType.THIRD_PARTY_RECEIVABLE -> "e.g. Loan to Friend, Security Deposit"
+                                else -> "e.g. Electricity share, Groceries split"
+                            }
+                        )
+                    },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -142,14 +230,13 @@ fun AddInvoiceDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Amount Field
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = {
                         amountText = it
                         errorMessage = null
                     },
-                    label = { Text("Amount Owed ($)") },
+                    label = { Text("Total Amount ($)") },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -168,105 +255,222 @@ fun AddInvoiceDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Debtor: Who owes money? (From Member)
-                Text(
-                    text = "Who Owes Money? (Debtor)",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Navy900
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    memberNames.forEach { name ->
-                        val isSelected = fromMember.equals(name, ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) Color(0xFFFFEBEE) else Color(0xFFF0F4F8),
-                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, ExpenseRed) else null,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .clickable { fromMember = name }
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(FormatUtils.getMemberAvatarColor(name))
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = name,
-                                    color = if (isSelected) ExpenseRed else Navy900,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
+                when (liabilityType) {
+                    LiabilityType.THIRD_PARTY_PAYABLE -> {
+                        // Which family profile owes this 3rd-party debt?
+                        Text(
+                            text = "Family Profile Responsible (Debtor)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Navy900
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        ProfileChipSelector(
+                            names = (profileNames + "Family").distinct(),
+                            selectedName = linkedProfile,
+                            activeBg = Color(0xFFFFEBEE),
+                            activeBorder = ExpenseRed,
+                            activeText = ExpenseRed,
+                            onSelect = {
+                                linkedProfile = it
+                                fromMember = it
                             }
+                        )
+                        if (profileNames.isEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = linkedProfile,
+                                onValueChange = {
+                                    linkedProfile = it
+                                    fromMember = it
+                                },
+                                label = { Text("Family Profile Name") },
+                                placeholder = { Text("e.g. Mom, Dad, Family") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = "External Third Party Owed (Creditor / Lender)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Navy900
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            thirdPartyPresets.forEach { preset ->
+                                val selected = toMember.equals(preset, ignoreCase = true)
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (selected) Navy900 else Color(0xFFF0F4F8),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .clickable { toMember = preset }
+                                ) {
+                                    Text(
+                                        text = preset,
+                                        fontSize = 11.sp,
+                                        color = if (selected) Color.White else Navy900,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = toMember,
+                            onValueChange = {
+                                toMember = it
+                                errorMessage = null
+                            },
+                            label = { Text("3rd-Party Creditor Name") },
+                            placeholder = { Text("e.g. Chase Bank, Landlord Mike, City Clinic") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    LiabilityType.THIRD_PARTY_RECEIVABLE -> {
+                        Text(
+                            text = "Family Profile To Receive (Creditor)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Navy900
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        ProfileChipSelector(
+                            names = (profileNames + "Family").distinct(),
+                            selectedName = linkedProfile,
+                            activeBg = Color(0xFFE8F5E9),
+                            activeBorder = IncomeGreen,
+                            activeText = IncomeGreen,
+                            onSelect = {
+                                linkedProfile = it
+                                toMember = it
+                            }
+                        )
+                        if (profileNames.isEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = linkedProfile,
+                                onValueChange = {
+                                    linkedProfile = it
+                                    toMember = it
+                                },
+                                label = { Text("Family Profile Name") },
+                                placeholder = { Text("e.g. Mom, Dad, Family") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = "External Third Party Who Owes Us (Debtor)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Navy900
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = fromMember,
+                            onValueChange = {
+                                fromMember = it
+                                errorMessage = null
+                            },
+                            label = { Text("3rd-Party Debtor Name") },
+                            placeholder = { Text("e.g. Friend John, Employer Reimbursement") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    else -> {
+                        // FAMILY_IOU
+                        Text(
+                            text = "Who Owes Money? (Debtor)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Navy900
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        if (profileNames.isNotEmpty()) {
+                            ProfileChipSelector(
+                                names = profileNames,
+                                selectedName = fromMember,
+                                activeBg = Color(0xFFFFEBEE),
+                                activeBorder = ExpenseRed,
+                                activeText = ExpenseRed,
+                                onSelect = { fromMember = it }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        if (profileNames.size <= 1) {
+                            OutlinedTextField(
+                                value = fromMember,
+                                onValueChange = {
+                                    fromMember = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Debtor Name") },
+                                placeholder = { Text("e.g. Alex, Jordan") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Who Is Owed? (Creditor)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Navy900
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        if (profileNames.isNotEmpty()) {
+                            ProfileChipSelector(
+                                names = profileNames,
+                                selectedName = toMember,
+                                activeBg = Color(0xFFE8F5E9),
+                                activeBorder = IncomeGreen,
+                                activeText = IncomeGreen,
+                                onSelect = { toMember = it }
+                            )
+                        }
+                        if (profileNames.size <= 1) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = toMember,
+                                onValueChange = {
+                                    toMember = it
+                                    errorMessage = null
+                                },
+                                label = { Text("Creditor Name") },
+                                placeholder = { Text("e.g. Mom, Dad") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Creditor: Who is owed money? (To Member)
+                // Due Date
                 Text(
-                    text = "Who Paid / Is Owed? (Creditor)",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Navy900
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    memberNames.forEach { name ->
-                        val isSelected = toMember.equals(name, ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) Color(0xFFE8F5E9) else Color(0xFFF0F4F8),
-                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF2E7D32)) else null,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .clickable { toMember = name }
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(FormatUtils.getMemberAvatarColor(name))
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = name,
-                                    color = if (isSelected) Color(0xFF2E7D32) else Navy900,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Due Date Options
-                Text(
-                    text = "Payment Due Date",
+                    text = "Due Date",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Navy900
@@ -274,13 +478,14 @@ fun AddInvoiceDialog(
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     listOf(
                         0 to "No Due",
-                        7 to "7 Days",
-                        14 to "14 Days",
-                        30 to "30 Days"
+                        7 to "7d",
+                        14 to "14d",
+                        30 to "30d",
+                        90 to "90d"
                     ).forEach { (days, label) ->
                         val isSelected = dueDaysOption == days
                         Surface(
@@ -304,20 +509,18 @@ fun AddInvoiceDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Notes
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes (Optional)") },
-                    placeholder = { Text("Details or reference") },
+                    placeholder = { Text("Installment terms, reference, or account note") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
@@ -331,15 +534,19 @@ fun AddInvoiceDialog(
                         onClick = {
                             val parsedAmount = amountText.toDoubleOrNull()
                             if (title.isBlank()) {
-                                errorMessage = "Please enter an invoice title"
+                                errorMessage = "Please enter a title"
                                 return@Button
                             }
                             if (parsedAmount == null || parsedAmount <= 0.0) {
                                 errorMessage = "Please enter a valid amount"
                                 return@Button
                             }
+                            if (fromMember.isBlank() || toMember.isBlank()) {
+                                errorMessage = "Please specify both debtor and creditor"
+                                return@Button
+                            }
                             if (fromMember.equals(toMember, ignoreCase = true)) {
-                                errorMessage = "Debtor and Creditor cannot be the same person"
+                                errorMessage = "Debtor and Creditor cannot be the same"
                                 return@Button
                             }
 
@@ -349,11 +556,13 @@ fun AddInvoiceDialog(
 
                             onSave(
                                 title.trim(),
-                                fromMember,
-                                toMember,
+                                liabilityType,
+                                if (liabilityType == LiabilityType.FAMILY_IOU) "" else linkedProfile.trim(),
+                                fromMember.trim(),
+                                toMember.trim(),
                                 parsedAmount,
                                 dueDateMs,
-                                notes
+                                notes.trim()
                             )
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -363,8 +572,60 @@ fun AddInvoiceDialog(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.testTag("save_invoice_button")
                     ) {
-                        Text("Create Invoice", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(
+                            text = if (liabilityType == LiabilityType.FAMILY_IOU) "Create IOU" else "Save Liability",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProfileChipSelector(
+    names: List<String>,
+    selectedName: String,
+    activeBg: Color,
+    activeBorder: Color,
+    activeText: Color,
+    onSelect: (String) -> Unit
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        names.forEach { name ->
+            val isSelected = selectedName.equals(name, ignoreCase = true)
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (isSelected) activeBg else Color(0xFFF0F4F8),
+                border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, activeBorder) else null,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { onSelect(name) }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(FormatUtils.getMemberAvatarColor(name))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = name,
+                        color = if (isSelected) activeText else Navy900,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
                 }
             }
         }

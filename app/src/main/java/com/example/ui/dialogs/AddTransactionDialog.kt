@@ -1,7 +1,6 @@
 package com.example.ui.dialogs
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,6 +61,7 @@ import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.IncomeGreenBg
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
+import com.example.ui.theme.TealLight
 import com.example.ui.util.FormatUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -66,6 +69,7 @@ import com.example.ui.util.FormatUtils
 fun AddTransactionDialog(
     members: List<FamilyMemberEntity>,
     defaultMember: String,
+    initialType: String = "EXPENSE",
     existingTransaction: TransactionEntity? = null,
     onDismiss: () -> Unit,
     onSave: (
@@ -76,13 +80,50 @@ fun AddTransactionDialog(
         category: String,
         paymentMethod: String,
         paidBy: String,
+        forWhom: String,
+        fromWhom: String,
+        contributedBy: String,
+        contributedAmount: Double,
         notes: String
     ) -> Unit
 ) {
-    var type by remember { mutableStateOf(existingTransaction?.type ?: "EXPENSE") }
+    var type by remember { mutableStateOf(existingTransaction?.type ?: initialType) }
     var amountText by remember { mutableStateOf(existingTransaction?.let { "%.2f".format(it.amount) } ?: "") }
-    var category by remember { mutableStateOf(existingTransaction?.category ?: "Groceries") }
-    var paidBy by remember { mutableStateOf(existingTransaction?.paidBy ?: defaultMember) }
+    var category by remember {
+        mutableStateOf(
+            existingTransaction?.category
+                ?: if ((existingTransaction?.type ?: initialType) == "INCOME") "Salary" else "Groceries"
+        )
+    }
+
+    val profileNames = remember(members) { members.map { it.name }.distinct() }
+    val initialOwner = existingTransaction?.paidBy?.takeIf { it.isNotBlank() }
+        ?: defaultMember.takeIf { it.isNotBlank() }
+        ?: profileNames.firstOrNull()
+        ?: ""
+
+    var paidBy by remember { mutableStateOf(initialOwner) }
+    var forWhom by remember {
+        mutableStateOf(
+            existingTransaction?.forWhom?.takeIf { it.isNotBlank() } ?: "Shared Family"
+        )
+    }
+    var fromWhom by remember { mutableStateOf(existingTransaction?.fromWhom ?: "") }
+
+    var hasContribution by remember {
+        mutableStateOf(
+            existingTransaction != null &&
+                (existingTransaction.contributedBy.isNotBlank() || existingTransaction.contributedAmount > 0.0)
+        )
+    }
+    var contributedBy by remember { mutableStateOf(existingTransaction?.contributedBy ?: "") }
+    var contributedAmountText by remember {
+        mutableStateOf(
+            existingTransaction?.takeIf { it.contributedAmount > 0.0 }
+                ?.let { "%.2f".format(it.contributedAmount) } ?: ""
+        )
+    }
+
     var paymentMethod by remember { mutableStateOf(existingTransaction?.paymentMethod ?: "Card") }
     var notes by remember { mutableStateOf(existingTransaction?.notes ?: "") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -91,12 +132,11 @@ fun AddTransactionDialog(
         "Groceries", "Utilities", "Rent", "Dining", "Education",
         "Healthcare", "Transport", "Entertainment", "Shopping", "Other"
     )
-
     val incomeCategories = listOf(
-        "Salary", "Bonus", "Investment", "Freelance", "Gift", "Other"
+        "Salary", "Bonus", "Investment", "Freelance", "Gift", "Refund", "Other"
     )
-
     val paymentMethods = listOf("Card", "Cash", "UPI / Bank Transfer", "Wallet")
+    val incomeSourcePresets = listOf("Employer", "Freelance / Client", "Family Member", "Refund", "3rd Party")
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -104,7 +144,7 @@ fun AddTransactionDialog(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
+                .fillMaxWidth(0.95f)
                 .clip(RoundedCornerShape(16.dp))
                 .testTag("add_transaction_dialog"),
             color = Color.White
@@ -114,14 +154,13 @@ fun AddTransactionDialog(
                     .padding(20.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (existingTransaction != null) "Edit Transaction" else "Record Transaction",
+                        text = if (existingTransaction != null) "Edit Ledger Entry" else "Record Ledger Entry",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Navy900
@@ -131,9 +170,9 @@ fun AddTransactionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Type Toggle: Expense vs Income
+                // Expense vs Income Toggle
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -210,16 +249,16 @@ fun AddTransactionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Amount Field
+                // Amount
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = {
                         amountText = it
                         errorMessage = null
                     },
-                    label = { Text("Amount ($)") },
+                    label = { Text("Total Amount ($)") },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -238,23 +277,23 @@ fun AddTransactionDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Paid By (Family Member)
+                // Paid By / Received By Profile
                 Text(
-                    text = if (type == "EXPENSE") "Paid By (Family Member)" else "Received By",
+                    text = if (type == "EXPENSE") "Paid By (Profile)" else "Received By (Profile)",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Navy900
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                val memberNames = if (members.isNotEmpty()) members.map { it.name }.distinct() else listOf(defaultMember)
+                Spacer(modifier = Modifier.height(6.dp))
+                val ownerOptions = (profileNames + "Family").distinct()
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    memberNames.forEach { name ->
+                    ownerOptions.forEach { name ->
                         val isSelected = paidBy.equals(name, ignoreCase = true)
                         Surface(
                             shape = RoundedCornerShape(20.dp),
@@ -270,7 +309,7 @@ fun AddTransactionDialog(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(16.dp)
+                                        .size(14.dp)
                                         .clip(CircleShape)
                                         .background(
                                             if (isSelected) TealAccent else FormatUtils.getMemberAvatarColor(name)
@@ -280,15 +319,249 @@ fun AddTransactionDialog(
                                 Text(
                                     text = name,
                                     color = if (isSelected) Color.White else Navy900,
-                                    fontSize = 13.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
                         }
                     }
                 }
+                if (profileNames.isEmpty() || paidBy !in ownerOptions) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = paidBy,
+                        onValueChange = { paidBy = it },
+                        label = { Text(if (type == "EXPENSE") "Payer Name" else "Receiver Name") },
+                        placeholder = { Text("e.g. Mom, Dad, Alex") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Attribution: For Whom (Expense) or From Whom (Income)
+                if (type == "EXPENSE") {
+                    Text(
+                        text = "Expense For Whom (Beneficiary)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Navy900
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val beneficiaryOptions = (listOf("Shared Family") + profileNames).distinct()
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        beneficiaryOptions.forEach { target ->
+                            val isSelected = forWhom.equals(target, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSelected) TealAccent else Color(0xFFF0F4F8),
+                                border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, CardBorderLight),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { forWhom = target }
+                            ) {
+                                Text(
+                                    text = target,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = Navy900,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = forWhom,
+                        onValueChange = { forWhom = it },
+                        label = { Text("For Whom (or custom person/purpose)") },
+                        placeholder = { Text("e.g. Shared Family, Emma, School, Parent") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("transaction_for_whom_input")
+                    )
+                } else {
+                    Text(
+                        text = "Income From Whom (Source)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Navy900
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        (incomeSourcePresets + profileNames).distinct().forEach { src ->
+                            val isSelected = fromWhom.equals(src, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSelected) IncomeGreenBg else Color(0xFFF0F4F8),
+                                border = if (isSelected) {
+                                    androidx.compose.foundation.BorderStroke(1.dp, IncomeGreen)
+                                } else androidx.compose.foundation.BorderStroke(1.dp, CardBorderLight),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { fromWhom = src }
+                            ) {
+                                Text(
+                                    text = src,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) IncomeGreen else Navy900,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = fromWhom,
+                        onValueChange = { fromWhom = it },
+                        label = { Text("From Whom / Source Name") },
+                        placeholder = { Text("e.g. Acme Corp, Uncle Sam, Tax Refund") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("transaction_from_whom_input")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Share / Contribution Provided by Another Person
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CardBorderLight),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.GroupAdd,
+                                    contentDescription = null,
+                                    tint = Navy900,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Share / Contribution by Other",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Navy900
+                                    )
+                                    Text(
+                                        text = "Did someone else chip in or provide a share?",
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = hasContribution,
+                                onCheckedChange = {
+                                    hasContribution = it
+                                    if (!it) {
+                                        contributedBy = ""
+                                        contributedAmountText = ""
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Navy900
+                                )
+                            )
+                        }
+
+                        if (hasContribution) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            if (profileNames.isNotEmpty()) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    profileNames.filter { !it.equals(paidBy, ignoreCase = true) }.forEach { name ->
+                                        val isSelected = contributedBy.equals(name, ignoreCase = true)
+                                        Surface(
+                                            shape = RoundedCornerShape(14.dp),
+                                            color = if (isSelected) Navy900 else Color.White,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorderLight),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .clickable { contributedBy = name }
+                                        ) {
+                                            Text(
+                                                text = name,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) Color.White else Navy900,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                            OutlinedTextField(
+                                value = contributedBy,
+                                onValueChange = { contributedBy = it },
+                                label = { Text("Contributed By (Member or 3rd Party)") },
+                                placeholder = { Text("e.g. Mom, Friend, Insurance") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = contributedAmountText,
+                                onValueChange = { contributedAmountText = it },
+                                label = { Text("Share / Contribution Amount ($)") },
+                                placeholder = { Text("0.00") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            val totalAmt = amountText.toDoubleOrNull() ?: 0.0
+                            val shareAmt = contributedAmountText.toDoubleOrNull() ?: 0.0
+                            if (totalAmt > 0 && shareAmt > 0) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = TealLight),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "Net by ${paidBy.ifBlank { "Owner" }}: ${FormatUtils.formatCurrency((totalAmt - shareAmt).coerceAtLeast(0.0))}  •  Share: ${FormatUtils.formatCurrency(shareAmt)}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Navy900,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Category Chips
                 Text(
@@ -297,7 +570,7 @@ fun AddTransactionDialog(
                     fontWeight = FontWeight.SemiBold,
                     color = Navy900
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 val availableCategories = if (type == "EXPENSE") expenseCategories else incomeCategories
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -334,7 +607,7 @@ fun AddTransactionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Payment Method
                 Text(
@@ -343,7 +616,7 @@ fun AddTransactionDialog(
                     fontWeight = FontWeight.SemiBold,
                     color = Navy900
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -371,20 +644,20 @@ fun AddTransactionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Notes
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes / Description") },
-                    placeholder = { Text("e.g. Monthly supermarket run") },
+                    placeholder = { Text("e.g. Monthly supermarket run, school fee") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("transaction_notes_input")
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Buttons
                 Row(
@@ -403,6 +676,13 @@ fun AddTransactionDialog(
                                 errorMessage = "Please enter a valid amount greater than $0.00"
                                 return@Button
                             }
+                            val shareAmt = if (hasContribution) {
+                                (contributedAmountText.toDoubleOrNull() ?: 0.0).coerceAtLeast(0.0)
+                            } else 0.0
+                            if (hasContribution && shareAmt > parsedAmount) {
+                                errorMessage = "Contributed share cannot exceed total amount"
+                                return@Button
+                            }
                             onSave(
                                 existingTransaction?.id,
                                 type,
@@ -410,7 +690,11 @@ fun AddTransactionDialog(
                                 existingTransaction?.date ?: System.currentTimeMillis(),
                                 category,
                                 paymentMethod,
-                                paidBy,
+                                paidBy.ifBlank { "Family" },
+                                if (type == "EXPENSE") forWhom.ifBlank { "Shared Family" } else forWhom,
+                                if (type == "INCOME") fromWhom else fromWhom,
+                                if (hasContribution) contributedBy else "",
+                                shareAmt,
                                 notes
                             )
                         },

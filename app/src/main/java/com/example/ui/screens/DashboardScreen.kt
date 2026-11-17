@@ -20,8 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CallSplit
@@ -34,10 +32,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,7 +47,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.model.FamilyInvoiceEntity
 import com.example.data.model.TransactionEntity
 import com.example.ui.theme.CardBorderLight
 import com.example.ui.theme.ExpenseRed
@@ -71,7 +66,6 @@ fun DashboardScreen(
     analytics: FamilyBooksViewModel.DashboardAnalytics,
     cashInHandBalance: Double,
     recentTransactions: List<TransactionEntity>,
-    pendingInvoices: List<FamilyInvoiceEntity>,
     onAddExpenseClick: () -> Unit,
     onAddIncomeClick: () -> Unit,
     onNewInvoiceClick: () -> Unit,
@@ -119,7 +113,6 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Total Income
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
@@ -152,7 +145,6 @@ fun DashboardScreen(
                             )
                         }
 
-                        // Total Expense
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
@@ -263,7 +255,7 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Month-on-Month Analytics Banner Link
+            // Profile & Month-on-Month Analytics Banner Link
             OutlinedCard(
                 colors = CardDefaults.outlinedCardColors(containerColor = Color(0xFFF0F5FA)),
                 shape = RoundedCornerShape(12.dp),
@@ -295,13 +287,13 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Month-on-Month Expense Analysis",
+                                text = "Profile & Month-on-Month Analytics",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = Navy900
                             )
                             Text(
-                                text = "Compare Groceries with Groceries, Utilities, etc.",
+                                text = "Analyze expenses, shares & debts by individual profile",
                                 fontSize = 11.sp,
                                 color = Color(0xFF4A5568)
                             )
@@ -324,7 +316,6 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Record Expense
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White,
@@ -354,16 +345,10 @@ fun DashboardScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "+ Expense",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Navy900
-                        )
+                        Text(text = "+ Expense", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Navy900)
                     }
                 }
 
-                // Add Income
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White,
@@ -393,16 +378,10 @@ fun DashboardScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "+ Income",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Navy900
-                        )
+                        Text(text = "+ Income", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Navy900)
                     }
                 }
 
-                // New Invoice
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White,
@@ -432,16 +411,10 @@ fun DashboardScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Invoice",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Navy900
-                        )
+                        Text(text = "+ Debt", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Navy900)
                     }
                 }
 
-                // Split Bill
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White,
@@ -471,19 +444,14 @@ fun DashboardScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Split Bill",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Navy900
-                        )
+                        Text(text = "Split Bill", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Navy900)
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Pending Informal Invoices Card
+            // Pending Family IOUs & Third-Party Debts Card
             if (analytics.pendingInvoicesCount > 0) {
                 OutlinedCard(
                     colors = CardDefaults.outlinedCardColors(containerColor = Color(0xFFFFFBF0)),
@@ -516,13 +484,13 @@ fun DashboardScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Pending Family Debts & Invoices",
+                                    text = "Active Debts, Shares & Liabilities",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
                                     color = Navy900
                                 )
                                 Text(
-                                    text = "${FormatUtils.formatCurrency(analytics.pendingInvoicesAmount)} total unsettled balance",
+                                    text = "Family IOUs: ${FormatUtils.formatCurrency(analytics.pendingFamilyIousAmount)}  •  3rd-Party Debt: ${FormatUtils.formatCurrency(analytics.thirdPartyPayableAmount)}",
                                     fontSize = 11.sp,
                                     color = Color(0xFF8A5B00)
                                 )
@@ -531,7 +499,7 @@ fun DashboardScreen(
 
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "View Invoices",
+                            contentDescription = "View Debts",
                             tint = PendingOrange,
                             modifier = Modifier.size(18.dp)
                         )
@@ -582,12 +550,7 @@ fun DashboardScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(
-                                        text = cat,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Navy900
-                                    )
+                                    Text(text = cat, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Navy900)
                                     Text(
                                         text = "${FormatUtils.formatCurrency(amt)} (${(percentage * 100).toInt()}%)",
                                         fontSize = 12.sp,
@@ -612,7 +575,6 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Recent Transactions Section Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -625,18 +587,12 @@ fun DashboardScreen(
                     color = Navy900
                 )
                 TextButton(onClick = onViewAllTransactionsClick) {
-                    Text(
-                        text = "View All",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Navy900
-                    )
+                    Text(text = "View All", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Navy900)
                 }
             }
             Spacer(modifier = Modifier.height(6.dp))
         }
 
-        // Recent items feed
         if (recentTransactions.isEmpty()) {
             item {
                 Card(
@@ -659,7 +615,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Tap '+ Expense' or '+ Income' above to record the first family entry.",
+                            text = "Tap '+ Expense' or '+ Income' above to record your first family ledger entry.",
                             fontSize = 12.sp,
                             color = Color.Gray,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -688,6 +644,8 @@ fun TransactionCardItem(
     transaction: TransactionEntity,
     onClick: () -> Unit
 ) {
+    val isExpense = transaction.type == "EXPENSE"
+
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(12.dp),
@@ -701,14 +659,11 @@ fun TransactionCardItem(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Category Icon Badge
             Box(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(
-                        FormatUtils.getCategoryColor(transaction.category).copy(alpha = 0.15f)
-                    ),
+                    .background(FormatUtils.getCategoryColor(transaction.category).copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -721,7 +676,6 @@ fun TransactionCardItem(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Details
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -731,19 +685,14 @@ fun TransactionCardItem(
                         color = Navy900
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-
-                    // Paid By Member Pill
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFFF0F4F8)
-                    ) {
+                    Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFF0F4F8)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(10.dp)
+                                    .size(9.dp)
                                     .clip(CircleShape)
                                     .background(FormatUtils.getMemberAvatarColor(transaction.paidBy))
                             )
@@ -758,6 +707,25 @@ fun TransactionCardItem(
                     }
                 }
 
+                // Attribution subtitle (For Whom / From Whom / Share Contributed)
+                val attrParts = buildList {
+                    if (isExpense && transaction.forWhom.isNotBlank()) add("For: ${transaction.forWhom}")
+                    if (!isExpense && transaction.fromWhom.isNotBlank()) add("From: ${transaction.fromWhom}")
+                    if (transaction.contributedBy.isNotBlank() && transaction.contributedAmount > 0) {
+                        add("Share by ${transaction.contributedBy}: ${FormatUtils.formatCurrency(transaction.contributedAmount)}")
+                    }
+                }
+                if (attrParts.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = attrParts.joinToString(" • "),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF007563),
+                        maxLines = 1
+                    )
+                }
+
                 if (transaction.notes.isNotBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
@@ -769,22 +737,13 @@ fun TransactionCardItem(
                 }
 
                 Spacer(modifier = Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = FormatUtils.formatDate(transaction.date),
-                        fontSize = 11.sp,
-                        color = Color(0xFF8C9BAE)
-                    )
-                    Text(
-                        text = " • ${transaction.paymentMethod}",
-                        fontSize = 11.sp,
-                        color = Color(0xFF8C9BAE)
-                    )
-                }
+                Text(
+                    text = "${FormatUtils.formatDate(transaction.date)} • ${transaction.paymentMethod}",
+                    fontSize = 11.sp,
+                    color = Color(0xFF8C9BAE)
+                )
             }
 
-            // Amount
-            val isExpense = transaction.type == "EXPENSE"
             Text(
                 text = (if (isExpense) "-" else "+") + FormatUtils.formatCurrency(transaction.amount),
                 fontWeight = FontWeight.Bold,

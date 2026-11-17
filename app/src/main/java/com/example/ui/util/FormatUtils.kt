@@ -93,4 +93,13 @@ object FormatUtils {
         val hash = kotlin.math.abs(name.hashCode())
         return colors[hash % colors.size]
     }
+
+    fun parseAvatarColor(hex: String, fallbackName: String): Color {
+        if (hex.isBlank()) return getMemberAvatarColor(fallbackName)
+        return try {
+            Color(android.graphics.Color.parseColor(hex))
+        } catch (_: Exception) {
+            getMemberAvatarColor(fallbackName)
+        }
+    }
 }

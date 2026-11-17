@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -31,6 +30,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -64,22 +65,33 @@ fun SplitExpenseDialog(
     members: List<FamilyMemberEntity>,
     currentMember: String,
     onDismiss: () -> Unit,
-    onConfirmSplit: (title: String, totalAmount: Double, paidBy: String, participatingMembers: List<String>) -> Unit
+    onConfirmSplit: (
+        title: String,
+        totalAmount: Double,
+        paidBy: String,
+        participatingMembers: List<String>,
+        alsoLogMainExpense: Boolean
+    ) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var totalAmountText by remember { mutableStateOf("") }
-    val memberNames = if (members.isNotEmpty()) {
-        members.map { it.name }.distinct()
-    } else {
-        listOf(currentMember)
-    }
-
-    var paidBy by remember { mutableStateOf(currentMember) }
-    val selectedMembers = remember {
-        mutableStateListOf<String>().apply {
-            addAll(memberNames.take(4))
+    val memberNames = remember(members, currentMember) {
+        if (members.isNotEmpty()) {
+            members.map { it.name }.distinct()
+        } else if (currentMember.isNotBlank()) {
+            listOf(currentMember)
+        } else {
+            emptyList()
         }
     }
+
+    var paidBy by remember { mutableStateOf(currentMember.ifBlank { memberNames.firstOrNull() ?: "" }) }
+    val selectedMembers = remember {
+        mutableStateListOf<String>().apply {
+            addAll(memberNames)
+        }
+    }
+    var alsoLogMainExpense by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val totalAmount = totalAmountText.toDoubleOrNull() ?: 0.0
@@ -105,7 +117,6 @@ fun SplitExpenseDialog(
                     .padding(20.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -119,7 +130,7 @@ fun SplitExpenseDialog(
                             color = Navy900
                         )
                         Text(
-                            text = "Evenly divide shared bills & create invoices",
+                            text = "Divide shared bills & track each member's share",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -130,6 +141,22 @@ fun SplitExpenseDialog(
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
+
+                if (memberNames.size < 2) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Add at least 2 family profiles in the Profiles tab to split expenses between members.",
+                            fontSize = 12.sp,
+                            color = Navy900,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 OutlinedTextField(
                     value = title,
@@ -167,123 +194,151 @@ fun SplitExpenseDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                if (memberNames.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Who Paid?
-                Text(
-                    text = "Who Paid the Full Bill upfront?",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Navy900
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    memberNames.forEach { name ->
-                        val isSelected = paidBy.equals(name, ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) Navy900 else Color(0xFFF0F4F8),
+                    Text(
+                        text = "Who Paid the Full Bill Upfront?",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Navy900
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        memberNames.forEach { name ->
+                            val isSelected = paidBy.equals(name, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = if (isSelected) Navy900 else Color(0xFFF0F4F8),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        paidBy = name
+                                        if (!selectedMembers.contains(name)) {
+                                            selectedMembers.add(name)
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isSelected) TealAccent else FormatUtils.getMemberAvatarColor(name)
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = name,
+                                        color = if (isSelected) Color.White else Navy900,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Split Among Profiles (${selectedMembers.size} selected)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Navy900
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    memberNames.forEach { memberName ->
+                        val isChecked = selectedMembers.contains(memberName)
+                        Row(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
                                 .clickable {
-                                    paidBy = name
-                                    if (!selectedMembers.contains(name)) {
-                                        selectedMembers.add(name)
+                                    if (isChecked) {
+                                        if (selectedMembers.size > 1) selectedMembers.remove(memberName)
+                                    } else {
+                                        selectedMembers.add(memberName)
                                     }
                                 }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    if (checked) {
+                                        selectedMembers.add(memberName)
+                                    } else {
+                                        if (selectedMembers.size > 1) selectedMembers.remove(memberName)
+                                    }
+                                }
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(FormatUtils.getMemberAvatarColor(memberName)),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isSelected) TealAccent else FormatUtils.getMemberAvatarColor(name)
-                                        )
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = name,
-                                    color = if (isSelected) Color.White else Navy900,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    text = memberName.take(1).uppercase(),
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Who is splitting?
-                Text(
-                    text = "Split Among Members (${selectedMembers.size} selected)",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Navy900
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                memberNames.forEach { memberName ->
-                    val isChecked = selectedMembers.contains(memberName)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                if (isChecked) {
-                                    if (selectedMembers.size > 1) selectedMembers.remove(memberName)
-                                } else {
-                                    selectedMembers.add(memberName)
-                                }
-                            }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = { checked ->
-                                if (checked) {
-                                    selectedMembers.add(memberName)
-                                } else {
-                                    if (selectedMembers.size > 1) selectedMembers.remove(memberName)
-                                }
-                            }
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(FormatUtils.getMemberAvatarColor(memberName)),
-                            contentAlignment = Alignment.Center
-                        ) {
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = memberName.take(1).uppercase(),
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                text = memberName,
+                                fontSize = 14.sp,
+                                fontWeight = if (isChecked) FontWeight.SemiBold else FontWeight.Normal,
+                                color = Navy900
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = memberName,
-                            fontSize = 14.sp,
-                            fontWeight = if (isChecked) FontWeight.SemiBold else FontWeight.Normal,
-                            color = Navy900
-                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Split Calculation Card
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Also Log Expense in Ledger",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Navy900
+                        )
+                        Text(
+                            text = "Records the full expense paid by ${paidBy.ifBlank { "payer" }}",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                    }
+                    Switch(
+                        checked = alsoLogMainExpense,
+                        onCheckedChange = { alsoLogMainExpense = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Navy900
+                        )
+                    )
+                }
+
                 if (totalAmount > 0 && selectedMembers.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
                     Card(
                         colors = CardDefaults.cardColors(containerColor = TealLight),
                         shape = RoundedCornerShape(12.dp),
@@ -308,8 +363,9 @@ fun SplitExpenseDialog(
                                 )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
+                            val oweCount = selectedMembers.count { !it.equals(paidBy, ignoreCase = true) }
                             Text(
-                                text = "Will create ${selectedMembers.filter { !it.equals(paidBy, ignoreCase = true) }.size} invoices payable to $paidBy",
+                                text = "Will create $oweCount share IOU(s) owed to $paidBy",
                                 fontSize = 11.sp,
                                 color = Color(0xFF007563)
                             )
@@ -317,9 +373,8 @@ fun SplitExpenseDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
@@ -331,6 +386,10 @@ fun SplitExpenseDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
+                            if (memberNames.size < 2) {
+                                errorMessage = "Add at least 2 profiles first"
+                                return@Button
+                            }
                             if (title.isBlank()) {
                                 errorMessage = "Please enter an expense title"
                                 return@Button
@@ -339,11 +398,17 @@ fun SplitExpenseDialog(
                                 errorMessage = "Please enter a valid bill amount"
                                 return@Button
                             }
-                            if (selectedMembers.isEmpty()) {
-                                errorMessage = "Select at least 1 member to split"
+                            if (selectedMembers.size < 2) {
+                                errorMessage = "Select at least 2 profiles to split"
                                 return@Button
                             }
-                            onConfirmSplit(title.trim(), totalAmount, paidBy, selectedMembers.toList())
+                            onConfirmSplit(
+                                title.trim(),
+                                totalAmount,
+                                paidBy,
+                                selectedMembers.toList(),
+                                alsoLogMainExpense
+                            )
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Navy900,
@@ -352,7 +417,7 @@ fun SplitExpenseDialog(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.testTag("confirm_split_button")
                     ) {
-                        Text("Split & Create Invoices", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Split & Save", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }

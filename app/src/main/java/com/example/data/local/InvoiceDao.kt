@@ -19,9 +19,6 @@ interface InvoiceDao {
     @Query("SELECT * FROM family_invoices WHERE id = :id")
     suspend fun getInvoiceById(id: String): FamilyInvoiceEntity?
 
-    @Query("SELECT * FROM family_invoices WHERE updatedAt > :sinceTimestamp")
-    suspend fun getInvoicesModifiedSince(sinceTimestamp: Long): List<FamilyInvoiceEntity>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(invoice: FamilyInvoiceEntity)
 
@@ -31,7 +28,7 @@ interface InvoiceDao {
     @Update
     suspend fun update(invoice: FamilyInvoiceEntity)
 
-    @Query("UPDATE family_invoices SET status = 'SETTLED', settledAt = :settledAt, updatedAt = :updatedAt WHERE id = :id")
+    @Query("UPDATE family_invoices SET paidAmount = amount, status = 'SETTLED', settledAt = :settledAt, updatedAt = :updatedAt WHERE id = :id")
     suspend fun markAsSettled(
         id: String,
         settledAt: Long = System.currentTimeMillis(),

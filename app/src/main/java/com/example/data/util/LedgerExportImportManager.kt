@@ -1,6 +1,8 @@
 package com.example.data.util
 
 import com.example.data.model.FamilyInvoiceEntity
+import com.example.data.model.FamilyMemberEntity
+import com.example.data.model.LiabilityType
 import com.example.data.model.TransactionEntity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -15,12 +17,14 @@ data class LedgerImportPreview(
     val detectedMonthsByYear: Map<Int, List<Int>>, // Year -> List of 0-based months
     val allTransactions: List<TransactionEntity>,
     val allInvoices: List<FamilyInvoiceEntity>,
+    val allProfiles: List<FamilyMemberEntity> = emptyList(),
     val format: String // "JSON" or "CSV"
 )
 
 data class ImportResult(
     val transactionsImported: Int,
     val invoicesImported: Int,
+    val profilesImported: Int = 0,
     val year: Int?,
     val monthCount: Int,
     val message: String
@@ -44,22 +48,23 @@ object LedgerExportImportManager {
         return true
     }
 
-    fun getAvailableYears(transactions: List<TransactionEntity>): List<Int> {
+    fun getAvailableYears(
+        transactions: List<TransactionEntity>,
+        invoices: List<FamilyInvoiceEntity> = emptyList()
+    ): List<Int> {
         val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-        val years = transactions.map {
+        val years = (transactions.map { it.date } + invoices.map { it.date }).map {
             val cal = Calendar.getInstance()
-            cal.timeInMillis = it.date
+            cal.timeInMillis = it
             cal.get(Calendar.YEAR)
         }.toSet() + currentYear
         return years.sortedDescending()
     }
 
-    /**
-     * Exports transactions and invoices to JSON format
-     */
     fun exportToJson(
         transactions: List<TransactionEntity>,
         invoices: List<FamilyInvoiceEntity>,
+        profiles: List<FamilyMemberEntity> = emptyList(),
         year: Int,
         months: Set<Int>, // empty = full year
         currentMember: String
@@ -78,7 +83,7 @@ object LedgerExportImportManager {
 
         val root = JSONObject()
         root.put("app", "FamilyBooks")
-        root.put("exportVersion", "1.0")
+        root.put("exportVersion", "2.0")
         root.put("exportedAt", System.currentTimeMillis())
         root.put("exportedBy", currentMember)
         root.put("year", year)
@@ -91,10 +96,26 @@ object LedgerExportImportManager {
         val summaryObj = JSONObject()
         summaryObj.put("transactionCount", filteredTx.size)
         summaryObj.put("invoiceCount", filteredInv.size)
+        summaryObj.put("profileCount", profiles.size)
         summaryObj.put("totalExpense", totalExpense)
         summaryObj.put("totalIncome", totalIncome)
         summaryObj.put("netBalance", totalIncome - totalExpense)
         root.put("summary", summaryObj)
+
+        val profilesArray = JSONArray()
+        for (profile in profiles) {
+            val obj = JSONObject()
+            obj.put("id", profile.id)
+            obj.put("name", profile.name)
+            obj.put("role", profile.role)
+            obj.put("avatarColorHex", profile.avatarColorHex)
+            obj.put("isPrimary", profile.isPrimary)
+            obj.put("notes", profile.notes)
+            obj.put("createdAt", profile.createdAt)
+            obj.put("updatedAt", profile.updatedAt)
+            profilesArray.put(obj)
+        }
+        root.put("profiles", profilesArray)
 
         val txArray = JSONArray()
         for (tx in filteredTx) {
@@ -107,11 +128,14 @@ object LedgerExportImportManager {
             obj.put("category", tx.category)
             obj.put("paymentMethod", tx.paymentMethod)
             obj.put("paidBy", tx.paidBy)
+            obj.put("forWhom", tx.forWhom)
+            obj.put("fromWhom", tx.fromWhom)
+            obj.put("contributedBy", tx.contributedBy)
+            obj.put("contributedAmount", tx.contributedAmount)
             obj.put("notes", tx.notes)
             obj.put("createdAt", tx.createdAt)
             obj.put("updatedAt", tx.updatedAt)
             obj.put("isDeleted", tx.isDeleted)
-            obj.put("deviceId", tx.deviceId)
             txArray.put(obj)
         }
         root.put("transactions", txArray)
@@ -121,9 +145,12 @@ object LedgerExportImportManager {
             val obj = JSONObject()
             obj.put("id", inv.id)
             obj.put("title", inv.title)
+            obj.put("liabilityType", inv.liabilityType)
+            obj.put("linkedProfile", inv.linkedProfile)
             obj.put("fromMember", inv.fromMember)
             obj.put("toMember", inv.toMember)
             obj.put("amount", inv.amount)
+            obj.put("paidAmount", inv.paidAmount)
             obj.put("date", inv.date)
             if (inv.dueDate != null) obj.put("dueDate", inv.dueDate)
             obj.put("notes", inv.notes)
@@ -132,7 +159,6 @@ object LedgerExportImportManager {
             obj.put("createdAt", inv.createdAt)
             obj.put("updatedAt", inv.updatedAt)
             obj.put("isDeleted", inv.isDeleted)
-            obj.put("deviceId", inv.deviceId)
             invArray.put(obj)
         }
         root.put("invoices", invArray)
@@ -140,9 +166,6 @@ object LedgerExportImportManager {
         return root.toString(2)
     }
 
-    /**
-     * Exports transactions to CSV format compatible with Excel and Google Sheets
-     */
     fun exportToCsv(
         transactions: List<TransactionEntity>,
         year: Int,
@@ -150,21 +173,35 @@ object LedgerExportImportManager {
     ): String {
         val filteredTx = transactions.filter { matchesYearAndMonths(it.date, year, months) }
         val sb = StringBuilder()
-        sb.append("ID,Date,Type,Amount,Category,PaymentMethod,PaidBy,Notes,CreatedAt\n")
+        sb.append("ID,Date,Type,Amount,Category,PaymentMethod,PaidBy,ForWhom,FromWhom,ContributedBy,ContributedAmount,Notes,CreatedAt\n")
 
         for (tx in filteredTx) {
             val formattedDate = dateFormat.format(Date(tx.date))
-            val safeNotes = "\"" + tx.notes.replace("\"", "\"\"") + "\""
-            val safeCategory = "\"" + tx.category.replace("\"", "\"\"") + "\""
-            val safePaidBy = "\"" + tx.paidBy.replace("\"", "\"\"") + "\""
-            sb.append("${tx.id},$formattedDate,${tx.type},${tx.amount},$safeCategory,${tx.paymentMethod},$safePaidBy,$safeNotes,${tx.createdAt}\n")
+            sb.append(
+                listOf(
+                    tx.id,
+                    formattedDate,
+                    tx.type,
+                    tx.amount.toString(),
+                    csvEscape(tx.category),
+                    csvEscape(tx.paymentMethod),
+                    csvEscape(tx.paidBy),
+                    csvEscape(tx.forWhom),
+                    csvEscape(tx.fromWhom),
+                    csvEscape(tx.contributedBy),
+                    tx.contributedAmount.toString(),
+                    csvEscape(tx.notes),
+                    tx.createdAt.toString()
+                ).joinToString(",")
+            ).append("\n")
         }
         return sb.toString()
     }
 
-    /**
-     * Parses imported string (JSON or CSV) and extracts preview metadata
-     */
+    private fun csvEscape(value: String): String {
+        return "\"" + value.replace("\"", "\"\"") + "\""
+    }
+
     fun parseImportContent(content: String): Result<LedgerImportPreview> {
         val trimmed = content.trim()
         if (trimmed.isEmpty()) {
@@ -185,6 +222,30 @@ object LedgerExportImportManager {
             val root = JSONObject(jsonString)
             val txList = mutableListOf<TransactionEntity>()
             val invList = mutableListOf<FamilyInvoiceEntity>()
+            val profileList = mutableListOf<FamilyMemberEntity>()
+
+            val profilesArray = root.optJSONArray("profiles")
+            if (profilesArray != null) {
+                for (i in 0 until profilesArray.length()) {
+                    val obj = profilesArray.getJSONObject(i)
+                    val name = obj.optString("name", "").trim()
+                    if (name.isNotEmpty()) {
+                        profileList.add(
+                            FamilyMemberEntity(
+                                id = obj.optString("id", UUID.randomUUID().toString()),
+                                name = name,
+                                role = obj.optString("role", "Member"),
+                                avatarColorHex = obj.optString("avatarColorHex", "#0A2540"),
+                                isPrimary = obj.optBoolean("isPrimary", false),
+                                notes = obj.optString("notes", ""),
+                                createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                                updatedAt = obj.optLong("updatedAt", System.currentTimeMillis()),
+                                isDeleted = false
+                            )
+                        )
+                    }
+                }
+            }
 
             val txArray = root.optJSONArray("transactions")
             if (txArray != null) {
@@ -199,11 +260,14 @@ object LedgerExportImportManager {
                             category = obj.optString("category", "General"),
                             paymentMethod = obj.optString("paymentMethod", "Cash"),
                             paidBy = obj.optString("paidBy", "Family"),
+                            forWhom = obj.optString("forWhom", ""),
+                            fromWhom = obj.optString("fromWhom", ""),
+                            contributedBy = obj.optString("contributedBy", ""),
+                            contributedAmount = obj.optDouble("contributedAmount", 0.0),
                             notes = obj.optString("notes", ""),
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis()),
-                            isDeleted = obj.optBoolean("isDeleted", false),
-                            deviceId = obj.optString("deviceId", "")
+                            isDeleted = obj.optBoolean("isDeleted", false)
                         )
                     )
                 }
@@ -216,41 +280,39 @@ object LedgerExportImportManager {
                     invList.add(
                         FamilyInvoiceEntity(
                             id = obj.optString("id", UUID.randomUUID().toString()),
-                            title = obj.optString("title", "Invoice"),
+                            title = obj.optString("title", "Liability"),
+                            liabilityType = obj.optString("liabilityType", LiabilityType.FAMILY_IOU),
+                            linkedProfile = obj.optString("linkedProfile", ""),
                             fromMember = obj.optString("fromMember", "Member"),
                             toMember = obj.optString("toMember", "Member"),
                             amount = obj.optDouble("amount", 0.0),
+                            paidAmount = obj.optDouble("paidAmount", 0.0),
                             date = obj.optLong("date", System.currentTimeMillis()),
-                            dueDate = if (obj.has("dueDate")) obj.optLong("dueDate") else null,
+                            dueDate = if (obj.has("dueDate") && !obj.isNull("dueDate")) obj.optLong("dueDate") else null,
                             notes = obj.optString("notes", ""),
                             status = obj.optString("status", "UNPAID"),
-                            settledAt = if (obj.has("settledAt")) obj.optLong("settledAt") else null,
+                            settledAt = if (obj.has("settledAt") && !obj.isNull("settledAt")) obj.optLong("settledAt") else null,
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis()),
-                            isDeleted = obj.optBoolean("isDeleted", false),
-                            deviceId = obj.optString("deviceId", "")
+                            isDeleted = obj.optBoolean("isDeleted", false)
                         )
                     )
                 }
             }
 
-            if (txList.isEmpty() && invList.isEmpty()) {
-                return Result.failure(IllegalArgumentException("No transactions or invoices found in JSON file"))
+            if (txList.isEmpty() && invList.isEmpty() && profileList.isEmpty()) {
+                return Result.failure(IllegalArgumentException("No transactions, liabilities, or profiles found in JSON file"))
             }
 
             val yearsMap = mutableMapOf<Int, MutableSet<Int>>()
             val cal = Calendar.getInstance()
             for (tx in txList) {
                 cal.timeInMillis = tx.date
-                val y = cal.get(Calendar.YEAR)
-                val m = cal.get(Calendar.MONTH)
-                yearsMap.getOrPut(y) { mutableSetOf() }.add(m)
+                yearsMap.getOrPut(cal.get(Calendar.YEAR)) { mutableSetOf() }.add(cal.get(Calendar.MONTH))
             }
             for (inv in invList) {
                 cal.timeInMillis = inv.date
-                val y = cal.get(Calendar.YEAR)
-                val m = cal.get(Calendar.MONTH)
-                yearsMap.getOrPut(y) { mutableSetOf() }.add(m)
+                yearsMap.getOrPut(cal.get(Calendar.YEAR)) { mutableSetOf() }.add(cal.get(Calendar.MONTH))
             }
 
             Result.success(
@@ -259,6 +321,7 @@ object LedgerExportImportManager {
                     detectedMonthsByYear = yearsMap.mapValues { it.value.sorted() },
                     allTransactions = txList,
                     allInvoices = invList,
+                    allProfiles = profileList,
                     format = "JSON"
                 )
             )
@@ -282,6 +345,10 @@ object LedgerExportImportManager {
             val categoryIndex = header.indexOf("category")
             val methodIndex = header.indexOf("paymentmethod")
             val paidByIndex = header.indexOf("paidby")
+            val forWhomIndex = header.indexOf("forwhom")
+            val fromWhomIndex = header.indexOf("fromwhom")
+            val contributedByIndex = header.indexOf("contributedby")
+            val contributedAmountIndex = header.indexOf("contributedamount")
             val notesIndex = header.indexOf("notes")
 
             val txList = mutableListOf<TransactionEntity>()
@@ -297,6 +364,10 @@ object LedgerExportImportManager {
                 val category = if (categoryIndex in tokens.indices) tokens[categoryIndex] else "General"
                 val method = if (methodIndex in tokens.indices) tokens[methodIndex] else "Cash"
                 val paidBy = if (paidByIndex in tokens.indices) tokens[paidByIndex] else "Family"
+                val forWhom = if (forWhomIndex in tokens.indices) tokens[forWhomIndex] else ""
+                val fromWhom = if (fromWhomIndex in tokens.indices) tokens[fromWhomIndex] else ""
+                val contributedBy = if (contributedByIndex in tokens.indices) tokens[contributedByIndex] else ""
+                val contributedAmount = if (contributedAmountIndex in tokens.indices) tokens[contributedAmountIndex].toDoubleOrNull() ?: 0.0 else 0.0
                 val notes = if (notesIndex in tokens.indices) tokens[notesIndex] else ""
 
                 txList.add(
@@ -308,6 +379,10 @@ object LedgerExportImportManager {
                         category = category.ifBlank { "General" },
                         paymentMethod = method.ifBlank { "Cash" },
                         paidBy = paidBy.ifBlank { "Family" },
+                        forWhom = forWhom,
+                        fromWhom = fromWhom,
+                        contributedBy = contributedBy,
+                        contributedAmount = contributedAmount,
                         notes = notes,
                         createdAt = date,
                         updatedAt = System.currentTimeMillis()
@@ -319,9 +394,7 @@ object LedgerExportImportManager {
             val cal = Calendar.getInstance()
             for (tx in txList) {
                 cal.timeInMillis = tx.date
-                val y = cal.get(Calendar.YEAR)
-                val m = cal.get(Calendar.MONTH)
-                yearsMap.getOrPut(y) { mutableSetOf() }.add(m)
+                yearsMap.getOrPut(cal.get(Calendar.YEAR)) { mutableSetOf() }.add(cal.get(Calendar.MONTH))
             }
 
             Result.success(
