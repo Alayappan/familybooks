@@ -44,6 +44,8 @@ import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyOutlinedTextFieldColors
 import com.example.ui.util.FormatUtils
 
 @Composable
@@ -91,7 +93,7 @@ fun RefillCashDialog(
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondaryLight)
                     }
                 }
 
@@ -219,6 +221,7 @@ fun RefillCashDialog(
                     label = { Text(if (mode == 0) "Cash Amount to Add ($)" else "New Cash in Hand Total ($)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -230,6 +233,7 @@ fun RefillCashDialog(
                         label = { Text("Source / Note") },
                         placeholder = { Text("e.g. Bank ATM, Cash gift") },
                         singleLine = true,
+                        colors = familyOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -251,7 +255,7 @@ fun RefillCashDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = TextSecondaryLight, fontWeight = FontWeight.Medium)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(

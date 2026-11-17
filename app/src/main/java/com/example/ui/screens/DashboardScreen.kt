@@ -58,6 +58,8 @@ import com.example.ui.theme.PendingOrange
 import com.example.ui.theme.PendingOrangeBg
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.TextTertiaryLight
 import com.example.ui.util.FormatUtils
 import com.example.viewmodel.FamilyBooksViewModel
 
@@ -217,7 +219,7 @@ fun DashboardScreen(
                                 text = "Current Cash in Hand",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.Gray
+                                color = TextSecondaryLight
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
@@ -532,7 +534,7 @@ fun DashboardScreen(
                                 Text(
                                     text = "Top Payer: ${analytics.topPayerName}",
                                     fontSize = 11.sp,
-                                    color = Color.Gray,
+                                    color = TextSecondaryLight,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -617,7 +619,7 @@ fun DashboardScreen(
                         Text(
                             text = "Tap '+ Expense' or '+ Income' above to record your first family ledger entry.",
                             fontSize = 12.sp,
-                            color = Color.Gray,
+                            color = TextSecondaryLight,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
@@ -731,7 +733,7 @@ fun TransactionCardItem(
                     Text(
                         text = transaction.notes,
                         fontSize = 12.sp,
-                        color = Color.Gray,
+                        color = TextSecondaryLight,
                         maxLines = 1
                     )
                 }
@@ -740,7 +742,7 @@ fun TransactionCardItem(
                 Text(
                     text = "${FormatUtils.formatDate(transaction.date)} • ${transaction.paymentMethod}",
                     fontSize = 11.sp,
-                    color = Color(0xFF8C9BAE)
+                    color = TextTertiaryLight
                 )
             }
 

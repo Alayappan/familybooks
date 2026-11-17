@@ -1,9 +1,13 @@
 package com.example.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.CheckboxColors
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SwitchColors
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -44,12 +48,58 @@ private val LightColorScheme = lightColorScheme(
     onSurface = TextPrimaryLight,
     surfaceVariant = Navy50,
     onSurfaceVariant = TextSecondaryLight,
-    outline = CardBorderLight
+    outline = InputBorderUnfocused,
+    outlineVariant = CardBorderLight,
+    error = ExpenseRed,
+    onError = Color.White
+)
+
+@Composable
+fun familyOutlinedTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = TextPrimaryLight,
+    unfocusedTextColor = TextPrimaryLight,
+    disabledTextColor = TextSecondaryLight,
+    errorTextColor = TextPrimaryLight,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = InputContainerLight,
+    disabledContainerColor = Navy50,
+    errorContainerColor = Color.White,
+    cursorColor = Navy900,
+    errorCursorColor = ExpenseRed,
+    focusedBorderColor = Navy900,
+    unfocusedBorderColor = InputBorderUnfocused,
+    errorBorderColor = ExpenseRed,
+    focusedLabelColor = Navy900,
+    unfocusedLabelColor = TextSecondaryLight,
+    errorLabelColor = ExpenseRed,
+    focusedPlaceholderColor = TextTertiaryLight,
+    unfocusedPlaceholderColor = TextTertiaryLight,
+    focusedLeadingIconColor = Navy900,
+    unfocusedLeadingIconColor = TextSecondaryLight,
+    focusedTrailingIconColor = Navy900,
+    unfocusedTrailingIconColor = TextSecondaryLight
+)
+
+@Composable
+fun familySwitchColors(): SwitchColors = SwitchDefaults.colors(
+    checkedThumbColor = Color.White,
+    checkedTrackColor = Navy900,
+    checkedBorderColor = Navy900,
+    uncheckedThumbColor = Color.White,
+    uncheckedTrackColor = Color(0xFFCBD5E1),
+    uncheckedBorderColor = InputBorderUnfocused
+)
+
+@Composable
+fun familyCheckboxColors(): CheckboxColors = CheckboxDefaults.colors(
+    checkedColor = Navy900,
+    uncheckedColor = TextSecondaryLight,
+    checkmarkColor = Color.White
 )
 
 @Composable
 fun FamilyBooksTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
@@ -60,7 +110,7 @@ fun FamilyBooksTheme(
             val window = (view.context as? Activity)?.window
             if (window != null) {
                 window.statusBarColor = colorScheme.primary.toArgb()
-                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme && colorScheme.primary != Navy900
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             }
         }
     }

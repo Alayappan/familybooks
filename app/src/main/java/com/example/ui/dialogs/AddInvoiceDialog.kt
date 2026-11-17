@@ -54,6 +54,8 @@ import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.PendingOrange
 import com.example.ui.theme.TealAccent
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyOutlinedTextFieldColors
 import com.example.ui.util.FormatUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -137,11 +139,11 @@ fun AddInvoiceDialog(
                         Text(
                             text = "Track family IOUs & third-party debts per profile",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondaryLight)
                     }
                 }
 
@@ -223,6 +225,7 @@ fun AddInvoiceDialog(
                         )
                     },
                     singleLine = true,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("invoice_title_input")
@@ -241,6 +244,7 @@ fun AddInvoiceDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     isError = errorMessage != null,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("invoice_amount_input")
@@ -289,6 +293,7 @@ fun AddInvoiceDialog(
                                 label = { Text("Family Profile Name") },
                                 placeholder = { Text("e.g. Mom, Dad, Family") },
                                 singleLine = true,
+                                colors = familyOutlinedTextFieldColors(),
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -336,6 +341,7 @@ fun AddInvoiceDialog(
                             label = { Text("3rd-Party Creditor Name") },
                             placeholder = { Text("e.g. Chase Bank, Landlord Mike, City Clinic") },
                             singleLine = true,
+                            colors = familyOutlinedTextFieldColors(),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -370,6 +376,7 @@ fun AddInvoiceDialog(
                                 label = { Text("Family Profile Name") },
                                 placeholder = { Text("e.g. Mom, Dad, Family") },
                                 singleLine = true,
+                                colors = familyOutlinedTextFieldColors(),
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -392,6 +399,7 @@ fun AddInvoiceDialog(
                             label = { Text("3rd-Party Debtor Name") },
                             placeholder = { Text("e.g. Friend John, Employer Reimbursement") },
                             singleLine = true,
+                            colors = familyOutlinedTextFieldColors(),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -426,6 +434,7 @@ fun AddInvoiceDialog(
                                 label = { Text("Debtor Name") },
                                 placeholder = { Text("e.g. Alex, Jordan") },
                                 singleLine = true,
+                                colors = familyOutlinedTextFieldColors(),
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -460,6 +469,7 @@ fun AddInvoiceDialog(
                                 label = { Text("Creditor Name") },
                                 placeholder = { Text("e.g. Mom, Dad") },
                                 singleLine = true,
+                                colors = familyOutlinedTextFieldColors(),
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -516,6 +526,7 @@ fun AddInvoiceDialog(
                     onValueChange = { notes = it },
                     label = { Text("Notes (Optional)") },
                     placeholder = { Text("Installment terms, reference, or account note") },
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -527,7 +538,7 @@ fun AddInvoiceDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = TextSecondaryLight, fontWeight = FontWeight.Medium)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(

@@ -6,14 +6,14 @@
 
 ## Screenshots
 
-| Dashboard | Family Ledger |
-| :---: | :---: |
-| ![Dashboard](docs/screenshots/dashboard.jpg) | ![Ledger](docs/screenshots/ledger.jpg) |
-| Net cash flow, wallet pool & quick actions | Searchable ledger with attribution & share badges |
+| Dashboard | Family Ledger | Family Profiles |
+| :---: | :---: | :---: |
+| ![Dashboard](docs/screenshots/dashboard_v2.jpg) | ![Ledger](docs/screenshots/ledger_v2.jpg) | ![Profiles](docs/screenshots/profiles_v2.jpg) |
+| Net cash flow, wallet pool & quick actions | Searchable ledger with attribution & share badges | Per-profile cashflow, IOUs & 3rd-party debt cards |
 
 | Profile & MoM Analytics | Debts, Shares & 3rd-Party Liabilities |
 | :---: | :---: |
-| ![Analytics](docs/screenshots/analytics.jpg) | ![Debts & Liabilities](docs/screenshots/invoices.jpg) |
+| ![Analytics](docs/screenshots/analytics_v2.jpg) | ![Debts & Liabilities](docs/screenshots/debts_v2.jpg) |
 | Whole-family & individual-profile MoM comparisons | Track family IOUs, partial repayments & 3rd-party debts |
 
 ---

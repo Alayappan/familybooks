@@ -62,6 +62,9 @@ import com.example.ui.theme.IncomeGreenBg
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyOutlinedTextFieldColors
+import com.example.ui.theme.familySwitchColors
 import com.example.ui.util.FormatUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -166,7 +169,7 @@ fun AddTransactionDialog(
                         color = Navy900
                     )
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondaryLight)
                     }
                 }
 
@@ -201,14 +204,14 @@ fun AddTransactionDialog(
                             Icon(
                                 imageVector = Icons.Default.ArrowDownward,
                                 contentDescription = null,
-                                tint = if (expenseSelected) Color.White else Color.Gray,
+                                tint = if (expenseSelected) Color.White else TextSecondaryLight,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Expense",
                                 fontWeight = FontWeight.Bold,
-                                color = if (expenseSelected) Color.White else Color.Gray,
+                                color = if (expenseSelected) Color.White else TextSecondaryLight,
                                 fontSize = 14.sp
                             )
                         }
@@ -235,14 +238,14 @@ fun AddTransactionDialog(
                             Icon(
                                 imageVector = Icons.Default.ArrowUpward,
                                 contentDescription = null,
-                                tint = if (incomeSelected) Color.White else Color.Gray,
+                                tint = if (incomeSelected) Color.White else TextSecondaryLight,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Income",
                                 fontWeight = FontWeight.Bold,
-                                color = if (incomeSelected) Color.White else Color.Gray,
+                                color = if (incomeSelected) Color.White else TextSecondaryLight,
                                 fontSize = 14.sp
                             )
                         }
@@ -263,6 +266,7 @@ fun AddTransactionDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     isError = errorMessage != null,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("transaction_amount_input")
@@ -334,6 +338,7 @@ fun AddTransactionDialog(
                         label = { Text(if (type == "EXPENSE") "Payer Name" else "Receiver Name") },
                         placeholder = { Text("e.g. Mom, Dad, Alex") },
                         singleLine = true,
+                        colors = familyOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -382,6 +387,7 @@ fun AddTransactionDialog(
                         label = { Text("For Whom (or custom person/purpose)") },
                         placeholder = { Text("e.g. Shared Family, Emma, School, Parent") },
                         singleLine = true,
+                        colors = familyOutlinedTextFieldColors(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("transaction_for_whom_input")
@@ -428,6 +434,7 @@ fun AddTransactionDialog(
                         label = { Text("From Whom / Source Name") },
                         placeholder = { Text("e.g. Acme Corp, Uncle Sam, Tax Refund") },
                         singleLine = true,
+                        colors = familyOutlinedTextFieldColors(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("transaction_from_whom_input")
@@ -470,7 +477,7 @@ fun AddTransactionDialog(
                                     Text(
                                         text = "Did someone else chip in or provide a share?",
                                         fontSize = 11.sp,
-                                        color = Color.Gray
+                                        color = TextSecondaryLight
                                     )
                                 }
                             }
@@ -483,10 +490,7 @@ fun AddTransactionDialog(
                                         contributedAmountText = ""
                                     }
                                 },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = Navy900
-                                )
+                                colors = familySwitchColors()
                             )
                         }
 
@@ -526,6 +530,7 @@ fun AddTransactionDialog(
                                 label = { Text("Contributed By (Member or 3rd Party)") },
                                 placeholder = { Text("e.g. Mom, Friend, Insurance") },
                                 singleLine = true,
+                                colors = familyOutlinedTextFieldColors(),
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -536,6 +541,7 @@ fun AddTransactionDialog(
                                 placeholder = { Text("0.00") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 singleLine = true,
+                                colors = familyOutlinedTextFieldColors(),
                                 modifier = Modifier.fillMaxWidth()
                             )
 
@@ -652,6 +658,7 @@ fun AddTransactionDialog(
                     onValueChange = { notes = it },
                     label = { Text("Notes / Description") },
                     placeholder = { Text("e.g. Monthly supermarket run, school fee") },
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("transaction_notes_input")
@@ -666,7 +673,7 @@ fun AddTransactionDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = TextSecondaryLight, fontWeight = FontWeight.Medium)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(

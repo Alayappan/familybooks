@@ -16,7 +16,9 @@ val TealLight = Color(0xFFE0FAF5)
 
 val SurfaceLight = Color(0xFFFFFFFF)
 val BackgroundLight = Color(0xFFF5F7FA)
-val CardBorderLight = Color(0xFFE1E7EE)
+val CardBorderLight = Color(0xFFD5DEE8)
+val InputBorderUnfocused = Color(0xFF8C9BAE)
+val InputContainerLight = Color(0xFFF8FAFC)
 
 val ExpenseRed = Color(0xFFD32F2F)
 val ExpenseRedBg = Color(0xFFFFEBEE)
@@ -27,8 +29,8 @@ val PendingOrange = Color(0xFFED6C02)
 val PendingOrangeBg = Color(0xFFFFF3E0)
 
 val TextPrimaryLight = Color(0xFF0A2540)
-val TextSecondaryLight = Color(0xFF5A6E85)
-val TextTertiaryLight = Color(0xFF8C9BAE)
+val TextSecondaryLight = Color(0xFF475569)
+val TextTertiaryLight = Color(0xFF64748B)
 
 // Dark Theme Colors
 val NavyDarkBackground = Color(0xFF061423)

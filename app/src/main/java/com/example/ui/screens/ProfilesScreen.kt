@@ -64,6 +64,7 @@ import com.example.ui.theme.IncomeGreenBg
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
 import com.example.ui.util.FormatUtils
 
 @Composable
@@ -204,7 +205,7 @@ fun ProfilesScreen(
                 Text(
                     text = "Tap a profile to set it active, or inspect its income, expenses, shares, and liabilities.",
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = TextSecondaryLight
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -240,7 +241,7 @@ fun ProfilesScreen(
                             Text(
                                 text = "Create individual profiles (e.g., Mom, Dad, Alex) to analyze spending for whom, income from whom, shared contributions, and third-party debts.",
                                 fontSize = 12.sp,
-                                color = Color.Gray,
+                                color = TextSecondaryLight,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(14.dp))
@@ -314,7 +315,7 @@ fun ProfilesScreen(
                                 Text(
                                     text = "Export or restore full year or selected months (JSON/CSV)",
                                     fontSize = 11.sp,
-                                    color = Color.Gray
+                                    color = TextSecondaryLight
                                 )
                             }
                         }
@@ -338,12 +339,15 @@ fun ProfilesScreen(
     profileToDelete?.let { member ->
         AlertDialog(
             onDismissRequest = { profileToDelete = null },
+            containerColor = Color.White,
+            titleContentColor = Navy900,
+            textContentColor = TextSecondaryLight,
             title = { Text("Remove Profile?", fontWeight = FontWeight.Bold, color = Navy900) },
             text = {
                 Text(
                     "Remove '${member.name}' from family profiles? Existing ledger entries and liabilities will keep their historical labels.",
                     fontSize = 13.sp,
-                    color = Color(0xFF4A5568)
+                    color = TextSecondaryLight
                 )
             },
             confirmButton = {
@@ -352,14 +356,17 @@ fun ProfilesScreen(
                         onDeleteProfileClick(member)
                         profileToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ExpenseRed,
+                        contentColor = Color.White
+                    )
                 ) {
                     Text("Remove", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { profileToDelete = null }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = TextSecondaryLight, fontWeight = FontWeight.Medium)
                 }
             }
         )
@@ -450,7 +457,7 @@ private fun ProfileDetailCard(
                         Text(
                             text = summary.role,
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                 }
@@ -567,7 +574,7 @@ private fun MetricColumn(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        Text(text = label, fontSize = 10.sp, color = Color.Gray)
+        Text(text = label, fontSize = 10.sp, color = TextSecondaryLight)
         Text(text = value, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = valueColor)
     }
 }

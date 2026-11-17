@@ -53,6 +53,7 @@ import com.example.ui.theme.IncomeGreenBg
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
 import com.example.ui.util.FormatUtils
 import com.example.viewmodel.FamilyBooksViewModel
 
@@ -317,7 +318,7 @@ fun AnalyticsScreen(
                             Text(
                                 text = if (selectedProfile == "ALL") "Total Expenses" else "Spent For $selectedProfile",
                                 fontSize = 11.sp,
-                                color = Color.Gray
+                                color = TextSecondaryLight
                             )
                             Text(
                                 text = FormatUtils.formatCurrency(monthAnalytics.expenseForProfileThisMonth),
@@ -330,7 +331,7 @@ fun AnalyticsScreen(
                             Text(
                                 text = "Shares Contributed",
                                 fontSize = 11.sp,
-                                color = Color.Gray
+                                color = TextSecondaryLight
                             )
                             Text(
                                 text = FormatUtils.formatCurrency(monthAnalytics.contributionsProvidedThisMonth),
@@ -347,7 +348,7 @@ fun AnalyticsScreen(
 
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "3rd-Party Debt Owed", fontSize = 11.sp, color = Color.Gray)
+                            Text(text = "3rd-Party Debt Owed", fontSize = 11.sp, color = TextSecondaryLight)
                             Text(
                                 text = FormatUtils.formatCurrency(monthAnalytics.thirdPartyDebtOwed),
                                 fontSize = 14.sp,
@@ -356,7 +357,7 @@ fun AnalyticsScreen(
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "3rd-Party Receivables", fontSize = 11.sp, color = Color.Gray)
+                            Text(text = "3rd-Party Receivables", fontSize = 11.sp, color = TextSecondaryLight)
                             Text(
                                 text = FormatUtils.formatCurrency(monthAnalytics.thirdPartyReceivable),
                                 fontSize = 14.sp,
@@ -370,7 +371,7 @@ fun AnalyticsScreen(
 
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Family IOUs Owed", fontSize = 11.sp, color = Color.Gray)
+                            Text(text = "Family IOUs Owed", fontSize = 11.sp, color = TextSecondaryLight)
                             Text(
                                 text = FormatUtils.formatCurrency(monthAnalytics.familyDebtOwed),
                                 fontSize = 13.sp,
@@ -379,7 +380,7 @@ fun AnalyticsScreen(
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Family IOUs Receivable", fontSize = 11.sp, color = Color.Gray)
+                            Text(text = "Family IOUs Receivable", fontSize = 11.sp, color = TextSecondaryLight)
                             Text(
                                 text = FormatUtils.formatCurrency(monthAnalytics.familyReceivable),
                                 fontSize = 13.sp,
@@ -433,7 +434,7 @@ fun AnalyticsScreen(
                             Text(
                                 text = "Cash Spent: ${FormatUtils.formatCurrency(monthAnalytics.cashSpentCurrentMonth)} (Last: ${FormatUtils.formatCurrency(monthAnalytics.cashSpentPreviousMonth)})",
                                 fontSize = 11.sp,
-                                color = Color.Gray
+                                color = TextSecondaryLight
                             )
                         }
                     }
@@ -458,7 +459,7 @@ fun AnalyticsScreen(
             Text(
                 text = "This month vs last month" + if (selectedProfile != "ALL") " for $selectedProfile" else "",
                 fontSize = 12.sp,
-                color = Color.Gray
+                color = TextSecondaryLight
             )
             Spacer(modifier = Modifier.height(10.dp))
         }
@@ -487,7 +488,7 @@ fun AnalyticsScreen(
                         Text(
                             text = "Log transactions to see automatic category and month-on-month comparisons.",
                             fontSize = 12.sp,
-                            color = Color.Gray,
+                            color = TextSecondaryLight,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
@@ -618,7 +619,7 @@ fun CategoryComparisonCard(item: FamilyBooksViewModel.CategoryMoMComparison) {
                             contentDescription = null,
                             tint = when {
                                 isReduced -> IncomeGreen
-                                isSame -> Color.Gray
+                                isSame -> TextSecondaryLight
                                 else -> ExpenseRed
                             },
                             modifier = Modifier.size(13.dp)
@@ -665,8 +666,8 @@ fun CategoryComparisonCard(item: FamilyBooksViewModel.CategoryMoMComparison) {
 
             Column {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(text = "Last Month", fontSize = 12.sp, color = Color.Gray)
-                    Text(text = FormatUtils.formatCurrency(item.previousMonthAmount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
+                    Text(text = "Last Month", fontSize = 12.sp, color = TextSecondaryLight)
+                    Text(text = FormatUtils.formatCurrency(item.previousMonthAmount), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextSecondaryLight)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(

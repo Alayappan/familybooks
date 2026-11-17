@@ -52,6 +52,9 @@ import com.example.ui.theme.CardBorderLight
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyOutlinedTextFieldColors
+import com.example.ui.theme.familySwitchColors
 import com.example.ui.util.FormatUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -112,11 +115,11 @@ fun AddEditProfileDialog(
                         Text(
                             text = "Track expenses, income, shares & liabilities by person",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondaryLight)
                     }
                 }
 
@@ -131,6 +134,7 @@ fun AddEditProfileDialog(
                     label = { Text("Member Name") },
                     placeholder = { Text("e.g. Mom, Dad, Alex, Emma") },
                     singleLine = true,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("profile_name_input")
@@ -228,6 +232,7 @@ fun AddEditProfileDialog(
                     label = { Text("Notes (Optional)") },
                     placeholder = { Text("e.g. Manages household groceries & utilities") },
                     singleLine = true,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -248,16 +253,13 @@ fun AddEditProfileDialog(
                         Text(
                             text = "Pre-select this profile when logging new entries",
                             fontSize = 11.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                     Switch(
                         checked = isPrimary,
                         onCheckedChange = { isPrimary = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Navy900
-                        )
+                        colors = familySwitchColors()
                     )
                 }
 
@@ -269,7 +271,7 @@ fun AddEditProfileDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = TextSecondaryLight, fontWeight = FontWeight.Medium)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(

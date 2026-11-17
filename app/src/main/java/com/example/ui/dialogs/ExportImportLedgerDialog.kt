@@ -76,6 +76,8 @@ import com.example.ui.theme.IncomeGreenBg
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyOutlinedTextFieldColors
 import com.example.ui.util.FormatUtils
 import java.util.Calendar
 
@@ -150,11 +152,11 @@ fun ExportImportLedgerDialog(
                         Text(
                             text = "Yearly and monthly ledger backup & restore",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondaryLight)
                     }
                 }
 
@@ -187,7 +189,7 @@ fun ExportImportLedgerDialog(
                             }
                         },
                         selectedContentColor = Navy900,
-                        unselectedContentColor = Color.Gray
+                        unselectedContentColor = TextSecondaryLight
                     )
                     Tab(
                         selected = selectedTab == 1,
@@ -200,7 +202,7 @@ fun ExportImportLedgerDialog(
                             }
                         },
                         selectedContentColor = Navy900,
-                        unselectedContentColor = Color.Gray
+                        unselectedContentColor = TextSecondaryLight
                     )
                 }
 
@@ -618,6 +620,7 @@ fun ExportImportLedgerDialog(
                             },
                             placeholder = { Text("Paste FamilyBooks JSON or CSV export content here...") },
                             maxLines = 6,
+                            colors = familyOutlinedTextFieldColors(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp)

@@ -77,6 +77,8 @@ import com.example.ui.theme.PendingOrange
 import com.example.ui.theme.PendingOrangeBg
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyOutlinedTextFieldColors
 import com.example.ui.util.FormatUtils
 
 @Composable
@@ -314,7 +316,7 @@ fun InvoicesScreen(
                                 Text(
                                     text = "Combines intra-family shares and external third-party debts/receivables per profile.",
                                     fontSize = 12.sp,
-                                    color = Color.Gray
+                                    color = TextSecondaryLight
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
@@ -356,13 +358,16 @@ private fun RecordPaymentDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        titleContentColor = Navy900,
+        textContentColor = TextSecondaryLight,
         title = { Text("Record Payment", fontWeight = FontWeight.Bold, color = Navy900) },
         text = {
             Column {
                 Text(
                     text = "${invoice.title} • Remaining: ${FormatUtils.formatCurrency(remaining)}",
                     fontSize = 13.sp,
-                    color = Color(0xFF4A5568)
+                    color = TextSecondaryLight
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
@@ -374,6 +379,7 @@ private fun RecordPaymentDialog(
                     label = { Text("Payment Amount ($)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (errorMsg != null) {
@@ -391,14 +397,17 @@ private fun RecordPaymentDialog(
                     }
                     onConfirmPayment(amt)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Navy900)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Navy900,
+                    contentColor = Color.White
+                )
             ) {
                 Text("Apply Payment", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.Gray)
+                Text("Cancel", color = TextSecondaryLight, fontWeight = FontWeight.Medium)
             }
         }
     )
@@ -468,7 +477,7 @@ fun InvoiceCardItem(
                     Text(
                         text = FormatUtils.formatDate(invoice.date),
                         fontSize = 11.sp,
-                        color = Color.Gray
+                        color = TextSecondaryLight
                     )
                 }
 
@@ -483,7 +492,7 @@ fun InvoiceCardItem(
                         Text(
                             text = "of ${FormatUtils.formatCurrency(invoice.amount)}",
                             fontSize = 10.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                 }
@@ -546,7 +555,7 @@ fun InvoiceCardItem(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "Owes to",
-                    tint = Color.Gray,
+                    tint = TextSecondaryLight,
                     modifier = Modifier.size(16.dp)
                 )
 
@@ -650,7 +659,7 @@ fun InvoiceCardItem(
                     }
 
                     IconButton(onClick = onDelete, modifier = Modifier.size(34.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = TextSecondaryLight, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -695,7 +704,7 @@ private fun ProfileLiabilitySummaryCard(summary: ProfileFinancialSummary) {
                             fontWeight = FontWeight.Bold,
                             color = Navy900
                         )
-                        Text(text = summary.role, fontSize = 11.sp, color = Color.Gray)
+                        Text(text = summary.role, fontSize = 11.sp, color = TextSecondaryLight)
                     }
                 }
 
@@ -722,7 +731,7 @@ private fun ProfileLiabilitySummaryCard(summary: ProfileFinancialSummary) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Family Owed", fontSize = 10.sp, color = Color.Gray)
+                    Text(text = "Family Owed", fontSize = 10.sp, color = TextSecondaryLight)
                     Text(
                         text = FormatUtils.formatCurrency(summary.familyOwedToThem),
                         fontWeight = FontWeight.Bold,
@@ -731,7 +740,7 @@ private fun ProfileLiabilitySummaryCard(summary: ProfileFinancialSummary) {
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Owes Family", fontSize = 10.sp, color = Color.Gray)
+                    Text(text = "Owes Family", fontSize = 10.sp, color = TextSecondaryLight)
                     Text(
                         text = FormatUtils.formatCurrency(summary.familyTheyOwe),
                         fontWeight = FontWeight.Bold,
@@ -740,7 +749,7 @@ private fun ProfileLiabilitySummaryCard(summary: ProfileFinancialSummary) {
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "3rd-Party Debt", fontSize = 10.sp, color = Color.Gray)
+                    Text(text = "3rd-Party Debt", fontSize = 10.sp, color = TextSecondaryLight)
                     Text(
                         text = FormatUtils.formatCurrency(summary.thirdPartyTheyOwe),
                         fontWeight = FontWeight.Bold,
@@ -749,7 +758,7 @@ private fun ProfileLiabilitySummaryCard(summary: ProfileFinancialSummary) {
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "3rd-Party Owed", fontSize = 10.sp, color = Color.Gray)
+                    Text(text = "3rd-Party Owed", fontSize = 10.sp, color = TextSecondaryLight)
                     Text(
                         text = FormatUtils.formatCurrency(summary.thirdPartyOwedToThem),
                         fontWeight = FontWeight.Bold,

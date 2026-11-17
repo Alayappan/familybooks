@@ -36,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,6 +56,8 @@ import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyOutlinedTextFieldColors
 import com.example.ui.util.FormatUtils
 
 @Composable
@@ -105,21 +106,18 @@ fun LedgerScreen(
                         onValueChange = onSearchChange,
                         placeholder = { Text("Search category, for/from whom, contributor...") },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.Gray)
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = TextSecondaryLight)
                         },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { onSearchChange("") }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.Gray)
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextSecondaryLight)
                                 }
                             }
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = CardBorderLight,
-                            focusedBorderColor = Navy900
-                        ),
+                        colors = familyOutlinedTextFieldColors(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("ledger_search_field")
@@ -205,7 +203,7 @@ fun LedgerScreen(
                         text = "${transactions.size} Records Found",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.Gray
+                        color = TextSecondaryLight
                     )
                     Text(
                         text = "Out: ${FormatUtils.formatCurrency(totalExpense)}  |  In: ${FormatUtils.formatCurrency(totalIncome)}",
@@ -258,7 +256,7 @@ fun LedgerScreen(
                         Text(
                             text = "Try clearing search filters or log a new entry using the '+' button below.",
                             fontSize = 13.sp,
-                            color = Color.Gray,
+                            color = TextSecondaryLight,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
@@ -405,7 +403,7 @@ fun LedgerItemCard(
                     Text(
                         text = "${FormatUtils.formatDate(transaction.date)} • ${transaction.paymentMethod}",
                         fontSize = 11.sp,
-                        color = Color.Gray
+                        color = TextSecondaryLight
                     )
                 }
 
@@ -428,7 +426,7 @@ fun LedgerItemCard(
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Transaction",
-                        tint = Color.Gray,
+                        tint = TextSecondaryLight,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -437,7 +435,7 @@ fun LedgerItemCard(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete Transaction",
-                        tint = Color.Gray,
+                        tint = TextSecondaryLight,
                         modifier = Modifier.size(16.dp)
                     )
                 }

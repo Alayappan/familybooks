@@ -57,6 +57,10 @@ import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.TealAccent
 import com.example.ui.theme.TealLight
+import com.example.ui.theme.TextSecondaryLight
+import com.example.ui.theme.familyCheckboxColors
+import com.example.ui.theme.familyOutlinedTextFieldColors
+import com.example.ui.theme.familySwitchColors
 import com.example.ui.util.FormatUtils
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -132,11 +136,11 @@ fun SplitExpenseDialog(
                         Text(
                             text = "Divide shared bills & track each member's share",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondaryLight)
                     }
                 }
 
@@ -167,6 +171,7 @@ fun SplitExpenseDialog(
                     label = { Text("Expense Title / Purpose") },
                     placeholder = { Text("e.g. Sunday Family Dinner, Water Bill") },
                     singleLine = true,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -182,6 +187,7 @@ fun SplitExpenseDialog(
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
+                    colors = familyOutlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -280,7 +286,8 @@ fun SplitExpenseDialog(
                                     } else {
                                         if (selectedMembers.size > 1) selectedMembers.remove(memberName)
                                     }
-                                }
+                                },
+                                colors = familyCheckboxColors()
                             )
                             Box(
                                 modifier = Modifier
@@ -324,16 +331,13 @@ fun SplitExpenseDialog(
                         Text(
                             text = "Records the full expense paid by ${paidBy.ifBlank { "payer" }}",
                             fontSize = 11.sp,
-                            color = Color.Gray
+                            color = TextSecondaryLight
                         )
                     }
                     Switch(
                         checked = alsoLogMainExpense,
                         onCheckedChange = { alsoLogMainExpense = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Navy900
-                        )
+                        colors = familySwitchColors()
                     )
                 }
 
@@ -381,7 +385,7 @@ fun SplitExpenseDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = Color.Gray)
+                        Text("Cancel", color = TextSecondaryLight, fontWeight = FontWeight.Medium)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
